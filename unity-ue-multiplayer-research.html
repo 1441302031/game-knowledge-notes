@@ -1,511 +1,512 @@
 <!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>Ares · research-unity-ue-multiplayer-for-ares</title>
-<link rel="stylesheet" href="/ghibli.css">
+<link href="/ghibli.css" rel="stylesheet"/>
 </head>
 <body class="ghibli-body">
 <nav class="ghibli-sidebar">
-    <h2 class="ghibli-sidebar-title">📖 目录</h2>
-    <ul><li style="margin-left:0px"><a href="#unity-vs-unreal-engine-multiplayer-framework-research">Unity vs Unreal Engine Multiplayer Framework Research</a></li>
-<li style="margin-left:12px"><a href="#for-building-a-client-framework-on-ares-rust-game-server">For Building a Client Framework on Ares (Rust Game Server)</a></li>
-<li style="margin-left:12px"><a href="#1-unity-multiplayer-framework-comparison">1. Unity Multiplayer Framework Comparison</a></li>
-<li style="margin-left:12px"><a href="#2-unreal-engine-multiplayer-analysis">2. Unreal Engine Multiplayer Analysis</a></li>
-<li style="margin-left:12px"><a href="#3-unity-vs-unreal-engine-comparison-for-ares-based-games">3. Unity vs Unreal Engine Comparison for Ares-Based Games</a></li>
-<li style="margin-left:12px"><a href="#4-knowledge-areas-to-prepare">4. Knowledge Areas to Prepare</a></li>
-<li style="margin-left:12px"><a href="#5-practical-recommendations">5. Practical Recommendations</a></li>
-<li style="margin-left:12px"><a href="#appendix-a-quick-reference-card">Appendix A: Quick Reference Card</a></li>
-<li style="margin-left:12px"><a href="#appendix-b-key-external-resources">Appendix B: Key External Resources</a></li></ul>
+<h2 class="ghibli-sidebar-title">📖 目录</h2>
+<ul><li style="margin-left:0px"><a href="#unity-vs-unreal-engine-multiplayer-framework-research">Unity vs Unreal Engine 多人游戏框架调研</a></li>
+<li style="margin-left:12px"><a href="#for-building-a-client-framework-on-ares-rust-game-server">为 Ares（Rust 游戏服务器）构建客户端框架</a></li>
+<li style="margin-left:12px"><a href="#1-unity-multiplayer-framework-comparison">1. Unity 多人游戏框架对比</a></li>
+<li style="margin-left:12px"><a href="#2-unreal-engine-multiplayer-analysis">2. Unreal Engine 多人游戏分析</a></li>
+<li style="margin-left:12px"><a href="#3-unity-vs-unreal-engine-comparison-for-ares-based-games">3. Unity vs Unreal Engine 面向 Ares 游戏的对比</a></li>
+<li style="margin-left:12px"><a href="#4-knowledge-areas-to-prepare">4. 需要准备的知识领域</a></li>
+<li style="margin-left:12px"><a href="#5-practical-recommendations">5. 实践建议</a></li>
+<li style="margin-left:12px"><a href="#appendix-a-quick-reference-card">附录 A：快速参考卡片</a></li>
+<li style="margin-left:12px"><a href="#appendix-b-key-external-resources">附录 B：关键外部资源</a></li></ul>
 </nav>
 <main class="ghibli-main">
-<h1 id="unity-vs-unreal-engine-multiplayer-framework-research">Unity vs Unreal Engine Multiplayer Framework Research</h1>
-<h2 id="for-building-a-client-framework-on-ares-rust-game-server">For Building a Client Framework on Ares (Rust Game Server)</h2>
+<h1 id="unity-vs-unreal-engine-multiplayer-framework-research">Unity vs Unreal Engine 多人游戏框架调研</h1>
+<h2 id="for-building-a-client-framework-on-ares-rust-game-server">为 Ares（Rust 游戏服务器）构建客户端框架</h2>
 <blockquote>
-<p><strong>Research Date:</strong> May 2026
-<strong>Context:</strong> Ares is a Rust-based distributed game server framework supporting Lockstep (frame sync), StateSync (AOI), and Hybrid modes, with custom TCP+Protobuf protocol and gRPC internal service communication.</p>
+<p><strong>调研日期：</strong> May 2026
+<strong>背景：</strong> Ares 是一个基于 Rust 的分布式游戏服务器框架，支持 Lockstep（帧同步）、StateSync（AOI）和 Hybrid 模式，使用自定义 TCP+Protobuf 协议和 gRPC 内部服务通信。</p>
 </blockquote>
-<hr />
-<h2 id="1-unity-multiplayer-framework-comparison">1. Unity Multiplayer Framework Comparison</h2>
+<hr/>
+<h2 id="1-unity-multiplayer-framework-comparison">1. Unity 多人游戏框架对比</h2>
 <h3 id="1-1-mirror-networking">1.1 Mirror Networking</h3>
 <ul>
-<li><strong>Stars:</strong> 6,182 | <strong>License:</strong> MIT | <strong>Production Games:</strong> Population: ONE (Meta-acquired), 1000+ Steam games</li>
-<li><strong>Architecture:</strong> Client-Server model. Server &amp; client are ONE project using <code>NetworkBehaviour</code>. Uses <code>[SyncVar]</code>, <code>[Command]</code>/<code>[ClientRpc]</code>/<code>[TargetRpc]</code> attributes with IL post-processing for zero-overhead RPCs.</li>
-<li><strong>Sync Model:</strong> <strong>State Sync</strong> (authoritative server). Server owns state, syncs to clients via SyncVars + SyncLists/Dicts/Sets. No built-in Lockstep/Frame Sync support — must be custom-built.</li>
-<li><strong>Dedicated Server:</strong> Full dedicated server support. Server can run headless on Linux.</li>
-<li><strong>Rust/Ares Integration: ⭐⭐⭐⭐ (Good)</strong></li>
+<li><strong>Stars:</strong> 6,182 | <strong>License:</strong> MIT | <strong>Production Games:</strong> Population: ONE（被 Meta 收购）、1000+ 款 Steam 游戏</li>
+<li><strong>Architecture:</strong> Client-Server 模型。服务端和客户端是同一个项目，使用 <code>NetworkBehaviour</code>。使用 <code>[SyncVar]</code>, <code>[Command]</code>/<code>[ClientRpc]</code>/<code>[TargetRpc]</code> 属性配合 IL 后处理实现零开销 RPC。</li>
+<li><strong>Sync Model:</strong> <strong>State Sync</strong> （权威服务器）。服务器拥有状态，通过 SyncVars + SyncLists/Dicts/Sets 同步到客户端。没有内置 Lockstep/帧同步支持——必须自行构建。</li>
+<li><strong>Dedicated Server:</strong> 完整的专用服务器支持。服务器可以在 Linux 上以 headless 模式运行。</li>
+<li><strong>Rust/Ares 集成：⭐⭐⭐⭐（良好）</strong></li>
 <li>Mirror has a well-defined abstract <code>Transport</code> class (<code>ArraySegment&lt;byte&gt;</code> send/receive). Writing a custom <code>AresTransport : Transport</code> is straightforward.</li>
-<li>The transport layer is completely swappable — Mirror ships with Telepathy (TCP), KCP, Libuv, etc.</li>
-<li>Strategy: Write a custom Transport that serializes Mirror messages into Ares Protobuf frames, routes them to Ares Gateway via TCP, and deserializes responses back. <strong>The Unity client becomes a "thin client" — Mirror handles Unity-side networking idioms (NetworkBehaviour, SyncVar, RPCs), but all actual game logic runs on Ares.</strong></li>
-<li>One caveat: Mirror's built-in state sync (SyncVars) would be redundant with Ares StateSync — you'd use Mirror primarily for its RPC/command infrastructure and transport abstraction, not its state replication.</li>
-<li><strong>Snapshot Interpolation:</strong> Stable. <strong>Lag Compensation:</strong> Beta. <strong>Client Prediction:</strong> Researching (not shipped).</li>
+<li>传输层完全可替换——Mirror 自带 Telepathy（TCP）、KCP、Libuv 等。</li>
+<li>策略：编写一个自定义 Transport，将 Mirror 消息序列化为 Ares Protobuf 帧，通过 TCP 路由到 Ares Gateway，并将响应反序列化回来。 <strong>Unity 客户端成为一个"瘦客户端"——Mirror 处理 Unity 端的网络惯用模式（NetworkBehaviour、SyncVar、RPC），但所有实际游戏逻辑运行在 Ares 上。</strong></li>
+<li>一个注意事项：Mirror 的内置状态同步（SyncVars）会与 Ares 的 StateSync 冗余——你使用 Mirror 主要是为了它的 RPC/command 基础设施和传输抽象，而不是它的状态复制。</li>
+<li><strong>快照插值:</strong> 稳定。 <strong>Lag Compensation:</strong> Beta 阶段。 <strong>客户端预测:</strong> 研究阶段（尚未发布）。</li>
 </ul>
-<h3 id="1-2-fishnet-firstgeargames">1.2 FishNet (FirstGearGames)</h3>
+<h3 id="1-2-fishnet-firstgeargames">1.2 FishNet（FirstGearGames）</h3>
 <ul>
-<li><strong>Stars:</strong> 1,934 | <strong>License:</strong> Custom (free for &lt;20 CCU, paid Pro for larger) | <strong>Production:</strong> Growing rapidly</li>
-<li><strong>Architecture:</strong> Client-Server with <strong>Progressive</strong> feature set. Transport abstraction with <code>Transport</code> base class. Supports multiple simultaneous transports.</li>
-<li><strong>Sync Model:</strong> <strong>Advanced State Sync</strong> with tick-based synchronization, delta compression, and bandwidth optimization. Supports both server-authoritative and client-authoritative per-component.</li>
-<li><strong>Key Differentiators:</strong></li>
-<li><strong>Client-side Prediction:</strong> Built-in prediction system (one of few Unity netcodes with this).</li>
-<li><strong>Server Reconciliation:</strong> Built-in reconciliation for predicted objects.</li>
-<li><strong>Lag Compensation:</strong> Built-in (rewind time to validate hits).</li>
-<li><strong>Scene Management:</strong> Advanced scene loading/unloading with networked object lifecycle.</li>
-<li><strong>Progressive Tick System:</strong> Variable tick rate, bandwidth management.</li>
-<li><strong>Nested Network Objects:</strong> Proper parent-child networked transforms.</li>
-<li><strong>Dedicated Server:</strong> Full headless Linux support.</li>
-<li><strong>Rust/Ares Integration: ⭐⭐⭐⭐⭐ (Best)</strong></li>
-<li>Same Transport abstraction as Mirror — custom <code>AresTransport</code> is clean to implement.</li>
-<li>FishNet's prediction and reconciliation system is <strong>the most valuable feature for Ares integration</strong>. Since you're writing prediction/reconciliation logic anyway in your client framework, FishNet gives you a battle-tested implementation to either use directly or study as reference.</li>
-<li>FishNet's tick system aligns naturally with Ares's frame/Lockstep model.</li>
-<li>The Pro license limitation (&lt;20 CCU for free tier) is a consideration, but for development/testing it's free, and the Pro cost (~$50-100 one-time with subscription options) is negligible compared to Photon.</li>
-<li><strong>Best option for building a custom prediction system</strong> on top of Ares.</li>
+<li><strong>Stars:</strong> 1,934 | <strong>License:</strong> 自定义（&lt;20 CCU 免费，更大规模需付费 Pro）| <strong>Production:</strong> Growing rapidly</li>
+<li><strong>Architecture:</strong> Client-Server 模型，具有 <strong>Progressive</strong> 功能集。使用 <code>Transport</code> 基类进行传输抽象。支持多个同时传输。</li>
+<li><strong>Sync Model:</strong> <strong>Advanced State Sync</strong> ，支持基于 tick 的同步、增量压缩和带宽优化。支持按组件进行服务器权威和客户端权威。</li>
+<li><strong>关键差异化特性：</strong></li>
+<li><strong>Client-side Prediction:</strong> 内置预测系统（少数有此功能的 Unity 网络代码之一）。</li>
+<li><strong>服务端和解:</strong> 内置对预测对象的和解。</li>
+<li><strong>Lag Compensation:</strong> 内置（回溯时间以验证命中）。</li>
+<li><strong>Scene Management:</strong> 高级场景加载/卸载，带有网络对象生命周期。</li>
+<li><strong>Progressive Tick System:</strong> 可变 tick 频率、带宽管理。</li>
+<li><strong>Nested Network Objects:</strong> 正确的父子网络 Transform。</li>
+<li><strong>Dedicated Server:</strong> 完整的 Linux headless 支持。</li>
+<li><strong>Rust/Ares 集成：⭐⭐⭐⭐⭐（最佳）</strong></li>
+<li>与 Mirror 相同的 Transport 抽象——自定义 <code>AresTransport</code> 实现简洁。</li>
+<li>FishNet 的预测与和解系统是 <strong>Ares 集成最有价值的功能</strong>。既然你在客户端框架中无论如何都要编写预测/和解逻辑，FishNet 为你提供了一个经过实战检验的实现，可以直接使用或作为参考研究。</li>
+<li>FishNet 的 tick 系统与 Ares 的 frame/Lockstep 模型天然对齐。</li>
+<li>Pro 许可证限制（免费版 &lt;20 CCU）需要考虑，但开发/测试免费，且 Pro 费用（一次性约 $50-100，含订阅选项）与 Photon 相比微不足道。</li>
+<li><strong>构建自定义预测系统的最佳选择</strong> on top of Ares.</li>
 </ul>
-<h3 id="1-3-unity-netcode-for-gameobjects-ngo">1.3 Unity Netcode for GameObjects (NGO)</h3>
+<h3 id="1-3-unity-netcode-for-gameobjects-ngo">1.3 Unity Netcode for GameObjects（NGO）</h3>
 <ul>
 <li><strong>Stars:</strong> 2,311 | <strong>License:</strong> MIT / Unity Companion License | <strong>Backed by:</strong> Unity Technologies</li>
-<li><strong>Architecture:</strong> First-party Unity solution. Client-Server model with <code>NetworkBehaviour</code>, <code>NetworkVariable</code>, <code>ServerRpc</code>/<code>ClientRpc</code>. v2 adds "Distributed Authority" (client-hosted objects without a central server).</li>
-<li><strong>Sync Model:</strong> <strong>State Sync</strong> — <code>NetworkVariable</code> replication, RPCs. No built-in Lockstep or Frame Sync support. No built-in client prediction (you must write it yourself).</li>
-<li><strong>Dedicated Server:</strong> Supports headless builds. Unity's Multiplay Hosting service integration.</li>
-<li><strong>Rust/Ares Integration: ⭐⭐⭐ (Adequate)</strong></li>
-<li>NGO uses Unity Transport Package (UTP) by default, which is tightly coupled to Unity's relay and hosting services.</li>
-<li>While you can write a custom <code>NetworkTransport</code> implementation, NGO's architecture is less friendly to external backends than Mirror/FishNet.</li>
-<li>The Unity ecosystem lock-in (UTP, Relay, Lobby, Multiplay) means more friction when connecting to a custom Rust backend.</li>
-<li>Delayed features: prediction and reconciliation are not on the roadmap; Unity focuses on the "managed hosting" ecosystem.</li>
-<li><strong>Verdict:</strong> Only choose NGO if you're committed to Unity's full multiplayer ecosystem (Game Server Hosting, Relay, Matchmaker). Not recommended for a custom Rust backend.</li>
+<li><strong>Architecture:</strong> Unity 第一方解决方案。Client-Server 模型，使用 <code>NetworkBehaviour</code>, <code>NetworkVariable</code>, <code>ServerRpc</code>/<code>ClientRpc</code>。v2 增加了"分布式权威"（无需中心服务器的客户端托管对象）。</li>
+<li><strong>Sync Model:</strong> <strong>State Sync</strong> — <code>NetworkVariable</code> 复制、RPC。没有内置 Lockstep 或帧同步支持。没有内置客户端预测（必须自行编写）。</li>
+<li><strong>Dedicated Server:</strong> 支持 headless 构建。集成 Unity Multiplay Hosting 服务。</li>
+<li><strong>Rust/Ares 集成：⭐⭐⭐（可用）</strong></li>
+<li>NGO 默认使用 Unity Transport Package（UTP），与 Unity 的中继和托管服务紧密耦合。</li>
+<li>虽然可以编写自定义 <code>NetworkTransport</code> 实现，但 NGO 的架构对外部后端不如 Mirror/FishNet 友好。</li>
+<li>Unity 生态系统锁定（UTP、Relay、Lobby、Multiplay）意味着连接到自定义 Rust 后端时会有更多摩擦。</li>
+<li>功能延迟：预测与和解不在路线图上；Unity 专注于"托管服务"生态系统。</li>
+<li><strong>Verdict:</strong> 仅在你致力于 Unity 完整多人游戏生态系统（Game Server Hosting、Relay、Matchmaker）时选择 NGO。不推荐用于自定义 Rust 后端。</li>
 </ul>
 <h3 id="1-4-photon-fusion">1.4 Photon Fusion</h3>
 <ul>
-<li><strong>Architecture:</strong> Tick-based state sync with built-in prediction and interpolation. Server runs on Photon Cloud (managed service) or self-hosted Photon Server.</li>
-<li><strong>Sync Model:</strong> <strong>State Sync with Prediction.</strong> Every <code>NetworkObject</code> has a <code>NetworkTransform</code> with prediction. Uses a fixed tick rate (simulation runs at fixed timestep). Input is sent to server, server simulates, state comes back, client reconciles.</li>
-<li><strong>Protocol:</strong> Proprietary binary protocol. No Protobuf support. No custom protocol support.</li>
-<li><strong>Rust/Ares Integration: ❌ (Impossible)</strong></li>
-<li><strong>PHOTON FUSION CANNOT CONNECT TO A CUSTOM SERVER.</strong> The server must be Photon's server plugin or Photon Cloud. It uses Photon's proprietary binary protocol end-to-end.</li>
-<li>There is no transport abstraction — Fusion is a closed system (client + server both run Photon).</li>
-<li>You could theoretically run Fusion in "Host Mode" (one client is the server), but that defeats the purpose of Ares.</li>
-<li><strong>Verdict:</strong> Non-starter. If you want to use Photon, use Photon Server too — you can't swap in Ares.</li>
+<li><strong>Architecture:</strong> 基于 tick 的状态同步，内置预测和插值。服务器运行在 Photon Cloud（托管服务）或自托管 Photon Server。</li>
+<li><strong>Sync Model:</strong> <strong>State Sync with Prediction.</strong> Every <code>NetworkObject</code> has a <code>NetworkTransform</code> with prediction。使用固定 tick 频率（模拟以固定时间步长运行）。输入发送到服务器，服务器模拟，状态返回，客户端进行和解。</li>
+<li><strong>Protocol:</strong> 专有二进制协议。不支持 Protobuf。不支持自定义协议。</li>
+<li><strong>Rust/Ares 集成：❌（不可能）</strong></li>
+<li><strong>PHOTON FUSION 无法连接到自定义服务器。</strong> 服务器必须是 Photon 的服务器插件或 Photon Cloud。它端到端使用 Photon 的专有二进制协议。</li>
+<li>没有传输抽象层——Fusion 是一个封闭系统（客户端和服务端都运行 Photon）。</li>
+<li>理论上可以在「Host Mode」下运行 Fusion（一个客户端作为服务器），但这违背了 Ares 的初衷。</li>
+<li><strong>Verdict:</strong> 不可行。如果你想用 Photon，就必须用 Photon Server——无法替换为 Ares。</li>
 </ul>
 <h3 id="1-5-photon-quantum">1.5 Photon Quantum</h3>
 <ul>
-<li><strong>Architecture:</strong> <strong>Deterministic Lockstep (Frame Sync).</strong> Entire simulation runs in a custom ECS (Entity Component System) that is fully deterministic. Only player input is transmitted. The server (Photon Cloud) runs the same simulation as all clients — everyone agrees on state by running the same deterministic simulation.</li>
-<li><strong>Sync Model:</strong> <strong>Lockstep (Frame Sync).</strong> This is the only Unity netcode that natively supports Lockstep/Frame Sync. All game logic runs in a deterministic ECS (not Unity GameObjects). Physics, pathfinding, etc. are deterministic subsystems.</li>
-<li><strong>Protocol:</strong> Proprietary. Only player input packets over UDP.</li>
-<li><strong>Rust/Ares Integration: ❌ (Impossible)</strong></li>
-<li><strong>QUANTUM CANNOT USE AN EXTERNAL SERVER.</strong> The deterministic ECS runs everywhere (clients + Photon server). You cannot replace the server — it's baked into the architecture.</li>
-<li>The custom ECS would also make it impossible to share protocol definitions with Ares.</li>
-<li><strong>Verdict:</strong> Interesting architecture to study (deterministic Lockstep with prediction/rollback), but impossible to integrate with Ares. Useful as a reference design for implementing your own deterministic Lockstep client on Unity.</li>
+<li><strong>Architecture:</strong> <strong>确定性 Lockstep (Frame Sync).</strong> 整个模拟在完全确定性的自定义 ECS（Entity Component System）中运行。只传输玩家输入。服务器（Photon Cloud）运行与所有客户端相同的模拟——通过运行相同的确定性模拟，所有人达成状态一致。</li>
+<li><strong>Sync Model:</strong> <strong>Lockstep (Frame Sync).</strong> 这是唯一原生支持 Lockstep/帧同步的 Unity 网络代码。所有游戏逻辑在确定性 ECS 中运行（非 Unity GameObject）。物理、寻路等是确定性子系统。</li>
+<li><strong>Protocol:</strong> 专有协议。仅通过 UDP 传输玩家输入数据包。</li>
+<li><strong>Rust/Ares 集成：❌（不可能）</strong></li>
+<li><strong>QUANTUM 无法使用外部服务器。</strong> 确定性 ECS 在所有地方运行（客户端 + Photon 服务器）。无法替换服务器——它已嵌入架构。</li>
+<li>自定义 ECS 也导致无法与 Ares 共享协议定义。</li>
+<li><strong>Verdict:</strong> 架构值得研究（带预测/回滚的确定性 Lockstep），但无法与 Ares 集成。可作为在 Unity 上实现自己的确定性 Lockstep 客户端的设计参考。</li>
 </ul>
-<hr />
-<h2 id="2-unreal-engine-multiplayer-analysis">2. Unreal Engine Multiplayer Analysis</h2>
-<h3 id="2-1-ue-built-in-networking-architecture">2.1 UE Built-in Networking Architecture</h3>
+<hr/>
+<h2 id="2-unreal-engine-multiplayer-analysis">2. Unreal Engine 多人游戏分析</h2>
+<h3 id="2-1-ue-built-in-networking-architecture">2.1 UE 内置网络架构</h3>
 <ul>
-<li><strong>Model:</strong> Authoritative Client-Server. Server owns all game state. Clients are "dumb terminals" that render server state.</li>
-<li><strong>Replication System:</strong> UE's replication is deeply integrated into the engine:</li>
+<li><strong>Model:</strong> 权威 Client-Server。服务器拥有所有游戏状态。客户端是渲染服务器状态的"哑终端"。</li>
+<li><strong>Replication System:</strong> UE 的复制系统深度集成到引擎中：</li>
 <li><code>UPROPERTY(Replicated)</code> — automatic property replication</li>
 <li><code>RPCs</code> (<code>Server</code>, <code>Client</code>, <code>NetMulticast</code>) — remote procedure calls</li>
 <li><code>AActor::bReplicates</code> — per-actor replication control</li>
-<li>Replication Graph — spatial optimization for large worlds (network culling)</li>
-<li><strong>Prediction &amp; Interpolation:</strong></li>
-<li><strong>Client-side Prediction:</strong> Built into <code>UCharacterMovementComponent</code>. When a client moves, it predicts locally and sends input to the server. The server simulates movement, sends the correction. UE's <code>APlayerController</code> and <code>UCharacterMovementComponent</code> handle prediction/reconciliation automatically for character movement.</li>
-<li><strong>Interpolation:</strong> UE interpolates between received states for smooth rendering. Uses packet timestamps and fixed update intervals.</li>
-<li><strong>Lag Compensation:</strong> Built-in via <code>bAllowLagCompensation</code> on characters. Server rewinds hit targets to the client's perceived position when validating hitscan weapons.</li>
-<li><strong>Network relevancy:</strong> Built-in spatial relevance system — server only replicates actors near the client (AOI equivalent).</li>
-<li><strong>Dedicated Server Workflow:</strong></li>
-<li>UE compiles a dedicated server binary (<code>-server</code> target platform)</li>
-<li>Linux headless with no rendering dependencies</li>
-<li>Battle-tested at massive scale (Fortnite, Valorant use UE dedicated servers)</li>
-<li>First-class Docker/container support</li>
-<li>Epic's backend services (EOS) optional but often used alongside</li>
+<li>Replication Graph——大型世界的空间优化（网络剔除）</li>
+<li><strong>预测与插值：</strong></li>
+<li><strong>Client-side Prediction:</strong> Built into <code>UCharacterMovementComponent</code> 中。当客户端移动时，它在本地预测并将输入发送到服务器。服务器模拟移动，发送修正。UE 的 <code>APlayerController</code> and <code>UCharacterMovementComponent</code> 为角色移动自动处理预测/和解。</li>
+<li><strong>Interpolation:</strong> UE 在接收到的状态之间进行插值以实现平滑渲染。使用数据包时间戳和固定更新间隔。</li>
+<li><strong>Lag Compensation:</strong> Built-in via <code>bAllowLagCompensation</code> 内置。在验证 hitscan 武器时，服务器将命中目标回溯到客户端感知的位置。</li>
+<li><strong>Network relevancy:</strong> 内置空间相关性系统——服务器仅复制客户端附近的 Actor（等效于 AOI）。</li>
+<li><strong>专用服务器工作流：</strong></li>
+<li>UE 编译专用服务器二进制文件（<code>-server</code> target platform)</li>
+<li>Linux headless，无渲染依赖</li>
+<li>经大规模实战验证（Fortnite、Valorant 使用 UE 专用服务器）</li>
+<li>一流的 Docker/容器支持</li>
+<li>Epic 的后端服务（EOS）可选但通常配套使用</li>
 </ul>
-<h3 id="2-2-ue-rust-ares-integration">2.2 UE + Rust/Ares Integration</h3>
-<p><strong>Feasibility: ⭐⭐ (Challenging but Possible)</strong></p>
-<p>UE's networking is <strong>deeply embedded in the engine</strong>. Unlike Unity where netcode is a separate package you can swap, UE's replication touches <code>AActor</code>, <code>UObject</code>, <code>UActorChannel</code>, <code>UNetDriver</code> — core engine systems.</p>
-<p><strong>Integration approaches:</strong></p>
-<p><strong>Approach A: Replace UNetDriver (Very Hard)</strong>
-- UE's <code>UNetDriver</code> handles all network I/O, replication, and RPC delivery.
-- You'd need to write a custom <code>UNetDriver</code> subclass that sends/receives Ares Protobuf messages instead of UE's built-in binary serialization.
-- This is a massive undertaking — the NetDriver interface is complex, poorly documented, and changes between UE versions.
-- You'd lose UE's built-in property replication, RPC system, and client prediction unless you reimplement them.
-- Not recommended.</p>
-<p><strong>Approach B: Gateway Layer (Practical)</strong>
-- Keep UE's built-in networking <strong>disabled</strong> (no replication, no NetDriver).
-- Write a C++ network layer in UE using <code>FUdpSocketBuilder</code> or <code>FTcpSocketBuilder</code> that connects directly to Ares Gateway via TCP.
-- Implement your own lightweight replication/prediction system in UE that mirrors Ares's Protobuf messages.
-- Use UE as a <strong>rendering and input engine only</strong> — all game state comes from Ares.
-- This is essentially building a "thin client" — you lose UE's built-in networking features but gain full control.
-- Still requires significant C++ expertise and deep understanding of UE's game loop.</p>
-<p><strong>Approach C: EOS P2P Bridge (Hacky)</strong>
-- Use Epic Online Services (EOS) P2P as a transport bridge.
-- Not elegant — adds unnecessary layers and EOS dependency.</p>
-<p><strong>Key Challenges:</strong>
-- UE's replication is not designed to be "swapped out." It's structural to the engine.
-- C++ compilation times in UE are slow during iteration.
-- UE's character movement system is tightly coupled to its networking model — extracting it for use with Ares requires significant work.
-- The Unity approach (write a Transport, swap it in) has no clean equivalent in UE.</p>
-<h3 id="2-3-ue-built-in-lockstep-frame-sync">2.3 UE Built-in Lockstep/Frame Sync</h3>
+<h3 id="2-2-ue-rust-ares-integration">2.2 UE + Rust/Ares 集成</h3>
+<p><strong>可行性：⭐⭐（有挑战但可行）</strong></p>
+<p>UE's networking is <strong>深度嵌入引擎</strong>。与 Unity 中网络代码是可以替换的独立包不同，UE 的复制涉及 <code>AActor</code>, <code>UObject</code>, <code>UActorChannel</code>, <code>UNetDriver</code>——这些核心引擎系统。</p>
+<p><strong>集成方案：</strong></p>
+<p><strong>方案 A：替换 UNetDriver（非常困难）</strong>
+- UE's <code>UNetDriver</code> 处理所有网络 I/O、复制和 RPC 传递。
+- 你需要编写一个自定义 <code>UNetDriver</code> 子类，发送/接收 Ares Protobuf 消息，而不是 UE 的内置二进制序列化。
+- 这是一个巨大的工程——NetDriver 接口复杂、文档不足，且在不同 UE 版本间会变化。
+- 你会失去 UE 的内置属性复制、RPC 系统和客户端预测，除非你重新实现它们。
+- 不推荐。</p>
+<p><strong>方案 B：网关层（实用方案）</strong>
+- Keep UE's built-in networking <strong>disabled</strong> （无复制、无 NetDriver）。
+- 在 UE 中使用 <code>FUdpSocketBuilder</code> 或 <code>FTcpSocketBuilder</code> 编写 C++ 网络层，通过 TCP 直接连接到 Ares Gateway。
+- 在 UE 中实现自己的轻量级复制/预测系统，镜像 Ares 的 Protobuf 消息。
+- 将 UE 仅作为 <strong>渲染和输入引擎</strong>——所有游戏状态来自 Ares。
+- 这本质上是构建一个"瘦客户端"——你失去了 UE 的内置网络功能，但获得了完全控制权。
+- 仍然需要大量的 C++ 专业知识和深入理解 UE 的游戏循环。</p>
+<p><strong>方案 C：EOS P2P 桥接（取巧方案）</strong>
+- 使用 Epic Online Services（EOS）P2P 作为传输桥接。
+- 不优雅——添加了不必要的层次和 EOS 依赖。</p>
+<p><strong>关键挑战：</strong>
+- UE 的复制系统不是设计为可"替换"的。它是引擎的结构性组成部分。
+- UE 的 C++ 编译时间在迭代期间很慢。
+- UE 的角色移动系统与其网络模型紧密耦合——提取出来用于 Ares 需要大量工作。
+- Unity 的方法（写一个 Transport，替换进去）在 UE 中没有干净的等价方案。</p>
+<h3 id="2-3-ue-built-in-lockstep-frame-sync">2.3 UE 内置 Lockstep/帧同步</h3>
 <ul>
-<li>UE has <strong>no built-in Lockstep or deterministic frame sync support.</strong></li>
-<li>UE's physics engine (PhysX/Chaos) is <strong>not deterministic.</strong> Building a Lockstep game in UE requires replacing the physics engine with a deterministic one, which is extremely difficult.</li>
-<li>RTS/MOBA games in UE typically use state sync + lockstep at the game logic layer (not the engine layer) — e.g., a custom deterministic game state class.</li>
+<li>UE has <strong>no built-in Lockstep 或 deterministic frame sync support.</strong></li>
+<li>UE 的物理引擎（PhysX/Chaos） <strong>not deterministic.</strong> 在 UE 中构建 Lockstep 游戏需要将物理引擎替换为确定性引擎，这极其困难。</li>
+<li>UE 中的 RTS/MOBA 游戏通常在游戏逻辑层（而非引擎层）使用状态同步 + lockstep——例如自定义确定性游戏状态类。</li>
 </ul>
-<hr />
-<h2 id="3-unity-vs-unreal-engine-comparison-for-ares-based-games">3. Unity vs Unreal Engine Comparison for Ares-Based Games</h2>
+<hr/>
+<h2 id="3-unity-vs-unreal-engine-comparison-for-ares-based-games">3. Unity vs Unreal Engine 面向 Ares 游戏的对比</h2>
 <table>
 <thead>
 <tr>
-<th>Dimension</th>
+<th>维度</th>
 <th>Unity + Mirror/FishNet</th>
 <th>Unreal Engine</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Custom Backend Integration</strong></td>
-<td>⭐⭐⭐⭐⭐ Trivial — abstract Transport class, plug in Ares TCP</td>
-<td>⭐⭐ Difficult — no clean plug-in point, must bypass engine networking</td>
+<td><strong>自定义后端集成</strong></td>
+<td>⭐⭐⭐⭐⭐ 简单——抽象 Transport 类，接入 Ares TCP</td>
+<td>⭐⭐ 困难——没有干净的接入点，必须绕过引擎网络</td>
 </tr>
 <tr>
-<td><strong>Networking Architecture Flexibility</strong></td>
-<td>⭐⭐⭐⭐⭐ Netcode is a swappable package — use what you need, ignore what you don't</td>
-<td>⭐ Deeply integrated — hard to avoid engine assumptions</td>
+<td><strong>网络架构灵活性</strong></td>
+<td>⭐⭐⭐⭐⭐ Netcode 是可替换的包——按需使用，忽略不需要的</td>
+<td>⭐ 深度集成——难以避免引擎预设</td>
 </tr>
 <tr>
-<td><strong>Lockstep/Frame Sync Support</strong></td>
-<td>⭐⭐⭐⭐ None built-in, but Unity allows deterministic simulation with custom physics</td>
-<td>⭐ PhysX/Chaos is non-deterministic — much harder to make deterministic</td>
+<td><strong>Lockstep/帧同步支持</strong></td>
+<td>⭐⭐⭐⭐ 无内置，但 Unity 允许使用自定义物理进行确定性模拟</td>
+<td>⭐ PhysX/Chaos 非确定性——使其确定性更加困难</td>
 </tr>
 <tr>
-<td><strong>Client Prediction Infrastructure</strong></td>
-<td>⭐⭐⭐⭐ FishNet has built-in prediction; Mirror has it in development</td>
-<td>⭐⭐⭐⭐⭐ Built-in for character movement; powerful but hard to customize</td>
+<td><strong>客户端预测基础设施</strong></td>
+<td>⭐⭐⭐⭐ FishNet 有内置预测；Mirror 正在开发中</td>
+<td>⭐⭐⭐⭐⭐ 角色移动内置；强大但难以自定义</td>
 </tr>
 <tr>
-<td><strong>Iteration Speed</strong></td>
-<td>⭐⭐⭐⭐⭐ Fast C# compile times (~seconds), Play Mode enter/exit is quick</td>
-<td>⭐⭐ Slow C++ compile times (~minutes), heavier editor</td>
+<td><strong>迭代速度</strong></td>
+<td>⭐⭐⭐⭐⭐ C# 编译快速（~秒级），播放模式进入/退出很快</td>
+<td>⭐⭐ C++ 编译慢（~分钟级），编辑器更重</td>
 </tr>
 <tr>
-<td><strong>C# / C++ Talent Availability</strong></td>
-<td>⭐⭐⭐⭐⭐ Massive C# + Unity developer pool</td>
-<td>⭐⭐⭐⭐ Strong but smaller UE C++ pool. C# knowledge doesn't transfer well</td>
+<td><strong>C# / C++ 人才储备</strong></td>
+<td>⭐⭐⭐⭐⭐ 庞大的 C# + Unity 开发者池</td>
+<td>⭐⭐⭐⭐ 强大但较小的 UE C++ 人才池。C# 知识不易迁移</td>
 </tr>
 <tr>
-<td><strong>Server-Rendering Capability</strong></td>
-<td>⭐ Not built for server-side rendering</td>
-<td>⭐⭐⭐⭐⭐ Pixel Streaming, server-side rendering for anti-cheat</td>
+<td><strong>服务器端渲染能力</strong></td>
+<td>⭐ 不适用于服务器端渲染</td>
+<td>⭐⭐⭐⭐⭐ Pixel Streaming、服务器端渲染防作弊</td>
 </tr>
 <tr>
-<td><strong>Out-of-box Graphics Quality</strong></td>
-<td>⭐⭐⭐ Dependent on asset setup</td>
-<td>⭐⭐⭐⭐⭐ Nanite, Lumen, built-in photorealism</td>
+<td><strong>开箱即用图形质量</strong></td>
+<td>⭐⭐⭐ 依赖资源配置</td>
+<td>⭐⭐⭐⭐⭐ Nanite、Lumen、内置照片级真实感</td>
 </tr>
 <tr>
-<td><strong>Console / Cross-platform</strong></td>
-<td>⭐⭐⭐ Requires platform-specific work</td>
-<td>⭐⭐⭐⭐⭐ First-class console support</td>
+<td><strong>主机/跨平台</strong></td>
+<td>⭐⭐⭐ 需要平台特定工作</td>
+<td>⭐⭐⭐⭐⭐ 一流的主机支持</td>
 </tr>
 <tr>
-<td><strong>Cost</strong></td>
-<td>Free (Mirror MIT) or ~$50-100 Pro (FishNet)</td>
-<td>Free (5% royalty &gt; $1M revenue)</td>
+<td><strong>成本</strong></td>
+<td>免费（Mirror MIT）或 ~$50-100 Pro（FishNet）</td>
+<td>免费（$1M 收入以上 5% 版税）</td>
 </tr>
 <tr>
-<td><strong>Ares Protocol Compatibility</strong></td>
-<td>⭐⭐⭐⭐⭐ Protobuf in C# is mature (protobuf-net, Google.Protobuf)</td>
-<td>⭐⭐⭐⭐ Protobuf in C++ is mature but more verbose</td>
+<td><strong>Ares 协议兼容性</strong></td>
+<td>⭐⭐⭐⭐⭐ C# 中的 Protobuf 已经很成熟（protobuf-net、Google.Protobuf）</td>
+<td>⭐⭐⭐⭐ C++ 中的 Protobuf 成熟但更冗长</td>
 </tr>
 <tr>
-<td><strong>Ease of Building Custom Client Framework</strong></td>
-<td>⭐⭐⭐⭐⭐ Clean separation — write a Transport, ship raw bytes</td>
-<td>⭐⭐ Must build networking from scratch or deeply modify engine classes</td>
+<td><strong>构建自定义客户端框架的简易度</strong></td>
+<td>⭐⭐⭐⭐⭐ 清晰分离——写一个 Transport，传输原始字节</td>
+<td>⭐⭐ 必须从零构建网络层或深度修改引擎类</td>
 </tr>
 <tr>
-<td><strong>Community Resources</strong></td>
-<td>⭐⭐⭐⭐⭐ Massive Unity multiplayer tutorials, Discord, forums</td>
-<td>⭐⭐⭐ UE networking docs are solid but custom-backend resources are rare</td>
+<td><strong>社区资源</strong></td>
+<td>⭐⭐⭐⭐⭐ 大量 Unity 多人游戏教程、Discord、论坛</td>
+<td>⭐⭐⭐ UE 网络文档扎实但自定义后端资源稀缺</td>
 </tr>
 <tr>
-<td><strong>Deterministic Simulation Feasibility</strong></td>
-<td>⭐⭐⭐⭐ Unity Physics can be made deterministic; you control the game loop</td>
-<td>⭐⭐ Chaos Physics is non-deterministic; steep path</td>
+<td><strong>确定性模拟可行性</strong></td>
+<td>⭐⭐⭐⭐ Unity Physics 可以使其确定性；你掌控游戏循环</td>
+<td>⭐⭐ Chaos Physics 非确定性；道路艰难</td>
 </tr>
 </tbody>
 </table>
-<h3 id="key-insight-the-transport-abstraction-advantage">Key Insight: The Transport Abstraction Advantage</h3>
-<p><strong>Unity</strong> has a "transport" layer between netcode logic and actual network I/O. You can write a <code>MonoBehaviour</code> that:
-1. Receives <code>ArraySegment&lt;byte&gt;</code> from the netcode
-2. Wraps it in an Ares Protobuf message
-3. Sends it over TCP to Ares Gateway
-4. Receives Ares Protobuf messages
-5. Delivers raw bytes back to the netcode</p>
-<p>This is <strong>~200 lines of C# code.</strong> Mirror has explicit Transport documentation; FishNet has similar docs. The netcode handles everything else (RPC dispatch, object lifecycle, scene management).</p>
-<p><strong>Unreal Engine</strong> has no equivalent abstraction point. You either:
-- Use UE's full networking stack (server-authoritative replication) — can't use Ares
-- Bypass UE networking completely and build your own — lose all engine benefits
-- Write a custom NetDriver (massive undertaking, poorly documented)</p>
-<hr />
-<h2 id="4-knowledge-areas-to-prepare">4. Knowledge Areas to Prepare</h2>
-<h3 id="4-1-core-networking-concepts-prerequisites">4.1 Core Networking Concepts (Prerequisites)</h3>
+<h3 id="key-insight-the-transport-abstraction-advantage">核心洞察：Transport 抽象层的优势</h3>
+<p><strong>Unity</strong> 在网络代码逻辑和实际网络 I/O 之间有一个「传输」层。你可以编写一个 <code>MonoBehaviour</code> 实现：
+1. Receives <code>ArraySegment&lt;byte&gt;</code> 
+2. 将其包装为 Ares Protobuf 消息
+3. 通过 TCP 发送到 Ares Gateway
+4. 接收 Ares Protobuf 消息
+5. 将原始字节传回到网络代码</p>
+<p>This is <strong>大约 200 行 C# 代码。</strong> Mirror 有明确的 Transport 文档；FishNet 有类似文档。网络代码处理其他一切（RPC 分发、对象生命周期、场景管理）。</p>
+<p><strong>Unreal Engine</strong> 没有等效的抽象点。你要么：
+- 使用 UE 的完整网络栈（服务器权威复制）——无法使用 Ares
+- 完全绕过 UE 网络并自己构建——失去所有引擎优势
+- 编写自定义 NetDriver（巨大工程，文档不足）</p>
+<hr/>
+<h2 id="4-knowledge-areas-to-prepare">4. 需要准备的知识领域</h2>
+<h3 id="4-1-core-networking-concepts-prerequisites">4.1 核心网络概念（先修知识）</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Why Needed</th>
-<th>Resources</th>
+<th>主题</th>
+<th>为什么需要</th>
+<th>资源</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>UDP vs TCP tradeoffs</strong></td>
-<td>Ares uses TCP+Protobuf. Understand head-of-line blocking, reliability, ordering semantics</td>
-<td>"Game Network Programming" book (chapters 1-3)</td>
+<td><strong>UDP vs TCP 权衡</strong></td>
+<td>Ares 使用 TCP+Protobuf。理解队头阻塞、可靠性、排序语义</td>
+<td>《Game Network Programming》书籍（第 1-3 章）</td>
 </tr>
 <tr>
-<td><strong>Client-Server Architecture</strong></td>
-<td>Understanding authoritative server model — server owns truth, clients predict</td>
-<td>GafferOnGames "What Every Programmer Needs to Know About Game Networking"</td>
+<td><strong>Client-Server 架构</strong></td>
+<td>理解权威服务器模型——服务器拥有真相，客户端预测</td>
+<td>GafferOnGames「What Every Programmer Needs to Know About Game Networking」</td>
 </tr>
 <tr>
-<td><strong>NAT Traversal / Relay</strong></td>
-<td>Players behind NAT need hole-punching or relay — understand STUN/TURN</td>
-<td>RFC 5389 (STUN), RFC 5766 (TURN)</td>
+<td><strong>NAT 穿越 / 中继</strong></td>
+<td>NAT 后面的玩家需要打洞或中继——理解 STUN/TURN</td>
+<td>RFC 5389（STUN）、RFC 5766（TURN）</td>
 </tr>
 <tr>
-<td><strong>Serialization &amp; Protocols</strong></td>
-<td>Protobuf encoding/decoding, message framing, endianness</td>
-<td>Google Protobuf docs, "Network Serialization in Games"</td>
+<td><strong>序列化与协议</strong></td>
+<td>Protobuf 编码/解码、消息帧结构、字节序</td>
+<td>Google Protobuf 文档、「Network Serialization in Games」</td>
 </tr>
 <tr>
-<td><strong>WebSocket / HTTP long-polling</strong></td>
-<td>Alternatives for web-based clients, REST for ancillary services</td>
-<td>MDN WebSocket docs</td>
+<td><strong>WebSocket / HTTP 长轮询</strong></td>
+<td>Web 客户端的替代方案、辅助服务的 REST</td>
+<td>MDN WebSocket 文档</td>
 </tr>
 <tr>
-<td><strong>Bandwidth &amp; RTT Optimization</strong></td>
-<td>Delta compression, interest management (AOI), priority channels</td>
-<td>Source Multiplayer Networking (Valve)</td>
+<td><strong>带宽与 RTT 优化</strong></td>
+<td>增量压缩、兴趣管理（AOI）、优先级通道</td>
+<td>Source Multiplayer Networking（Valve）</td>
 </tr>
 </tbody>
 </table>
-<h3 id="4-2-frame-sync-architecture-lockstep">4.2 Frame Sync Architecture (Lockstep)</h3>
+<h3 id="4-2-frame-sync-architecture-lockstep">4.2 帧同步架构（Lockstep）</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Why Needed</th>
-<th>Resources</th>
+<th>主题</th>
+<th>为什么需要</th>
+<th>资源</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Deterministic Lockstep</strong></td>
-<td>Core of Ares's Lockstep mode — all clients run same simulation with same inputs</td>
-<td>"1500 Archers on a 28.8" (Age of Empires article), Glenn Fiedler's articles</td>
+<td><strong>确定性 Lockstep</strong></td>
+<td>Ares Lockstep 模式的核心——所有客户端使用相同输入运行相同模拟</td>
+<td>「1500 Archers on a 28.8」（Age of Empires 文章）、Glenn Fiedler 的文章</td>
 </tr>
 <tr>
-<td><strong>Input Buffering &amp; Bucket Sync</strong></td>
-<td>Ares collects inputs in frame buckets, broadcasts when bucket is full</td>
-<td>Study Ares BattleServer source code</td>
+<td><strong>输入缓冲与桶同步</strong></td>
+<td>Ares 按帧桶收集输入，桶满时广播</td>
+<td>研究 Ares BattleServer 源代码</td>
 </tr>
 <tr>
-<td><strong>Frame Rate Independence</strong></td>
-<td>Deterministic simulation must run at fixed timestep regardless of rendering FPS</td>
-<td>"Fix Your Timestep!" (GafferOnGames)</td>
+<td><strong>帧率独立性</strong></td>
+<td>无论渲染 FPS 如何，确定性模拟必须以固定时间步长运行</td>
+<td>「Fix Your Timestep!」（GafferOnGames）</td>
 </tr>
 <tr>
-<td><strong>Checksum/Hash Validation</strong></td>
-<td>Detecting desyncs between clients and server</td>
-<td>Ares Hybrid mode — Lockstep + StateSync validation</td>
+<td><strong>校验和/哈希验证</strong></td>
+<td>检测客户端与服务器之间的不同步</td>
+<td>Ares Hybrid 模式——Lockstep + StateSync 验证</td>
 </tr>
 <tr>
-<td><strong>Drop-frame Handling</strong></td>
-<td>What happens when a client's input arrives late? Fill strategies</td>
-<td>GGPO networking model (fighting games)</td>
+<td><strong>掉帧处理</strong></td>
+<td>客户端输入延迟到达时怎么办？填充策略</td>
+<td>GGPO 网络模型（格斗游戏）</td>
 </tr>
 <tr>
-<td><strong>Deterministic Physics</strong></td>
-<td>Physics must produce identical results on all machines</td>
-<td>Fixed-point math vs IEEE 754 strict mode</td>
+<td><strong>确定性物理</strong></td>
+<td>物理必须在所有机器上产生相同结果</td>
+<td>定点数学 vs IEEE 754 严格模式</td>
 </tr>
 </tbody>
 </table>
-<h3 id="4-3-state-sync-architecture">4.3 State Sync Architecture</h3>
+<h3 id="4-3-state-sync-architecture">4.3 状态同步架构</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Why Needed</th>
-<th>Resources</th>
+<th>主题</th>
+<th>为什么需要</th>
+<th>资源</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Server Authority Model</strong></td>
-<td>Server owns all state, clients are "dumb renderers"</td>
-<td>UE/Unity netcode docs</td>
+<td><strong>服务器权威模型</strong></td>
+<td>服务器拥有所有状态，客户端是「哑渲染器」</td>
+<td>UE/Unity netcode 文档</td>
 </tr>
 <tr>
-<td><strong>Interest Management (AOI)</strong></td>
-<td>Ares has AOI — understand spatial partitioning, grid-based, distance-based</td>
-<td>Spatial Hashing, Quadtrees</td>
+<td><strong>兴趣管理（AOI）</strong></td>
+<td>Ares 具有 AOI——理解空间分区、基于网格、基于距离</td>
+<td>空间哈希、四叉树</td>
 </tr>
 <tr>
-<td><strong>Delta Compression</strong></td>
-<td>Only send what changed — critical for bandwidth in StateSync mode</td>
-<td>Mirror/FishNet source code</td>
+<td><strong>增量压缩</strong></td>
+<td>仅发送变化的内容——对 StateSync 模式下的带宽至关重要</td>
+<td>Mirror/FishNet 源代码</td>
 </tr>
 <tr>
-<td><strong>Snapshot Interpolation</strong></td>
-<td>Clients render slightly behind server to smooth out network jitter</td>
-<td>FishNet snapshot interpolation docs</td>
+<td><strong>快照插值</strong></td>
+<td>客户端渲染略微落后于服务器以平滑网络抖动</td>
+<td>FishNet 快照插值文档</td>
 </tr>
 <tr>
-<td><strong>Entity / Network ID management</strong></td>
-<td>Server assigns and manages IDs; clients map IDs to local objects</td>
-<td>Ares Protobuf message definitions</td>
+<td><strong>实体 / 网络 ID 管理</strong></td>
+<td>服务器分配和管理 ID；客户端将 ID 映射到本地对象</td>
+<td>Ares Protobuf 消息定义</td>
 </tr>
 </tbody>
 </table>
-<h3 id="4-4-client-side-prediction-amp-server-reconciliation">4.4 Client-Side Prediction &amp; Server Reconciliation</h3>
+<h3 id="4-4-client-side-prediction-amp-server-reconciliation">4.4 客户端预测与服务端和解</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Why Needed</th>
-<th>Resources</th>
+<th>主题</th>
+<th>为什么需要</th>
+<th>资源</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Client Prediction Basics</strong></td>
-<td>Client predicts own movement/actions, renders immediately, corrects later</td>
-<td>Gabriel Gambetta "Client-Server Game Architecture"</td>
+<td><strong>客户端预测基础</strong></td>
+<td>客户端预测自身移动/动作，立即渲染，稍后修正</td>
+<td>Gabriel Gambetta「Client-Server Game Architecture」</td>
 </tr>
 <tr>
-<td><strong>Server Reconciliation</strong></td>
-<td>Server re-simulates with client's perceived state for hit validation</td>
-<td>Valve "Latency Compensating Methods" paper</td>
+<td><strong>服务端和解</strong></td>
+<td>服务器使用客户端感知的状态重新模拟以进行命中验证</td>
+<td>Valve「Latency Compensating Methods」论文</td>
 </tr>
 <tr>
-<td><strong>Interpolation / Extrapolation</strong></td>
-<td>Interpolate between state snapshots; extrapolate when no new data</td>
-<td>FishNet source code, UE interpolation docs</td>
+<td><strong>插值 / 外推</strong></td>
+<td>在状态快照之间进行插值；没有新数据时进行外推</td>
+<td>FishNet 源代码、UE 插值文档</td>
 </tr>
 <tr>
-<td><strong>Input Queuing &amp; Replay</strong></td>
-<td>Store inputs with timestamps, replay on reconciliation</td>
-<td>GafferOnGames "Networked Physics"</td>
+<td><strong>输入队列与重放</strong></td>
+<td>存储带时间戳的输入，和解时重放</td>
+<td>GafferOnGames「Networked Physics」</td>
 </tr>
 <tr>
-<td><strong>Rollback Netcode (GGPO-style)</strong></td>
-<td>For fighting games — save state, rollback on misprediction, re-simulate</td>
-<td>GGPO whitepaper, "Deterministic Lockstep &amp; Rollback"</td>
+<td><strong>回滚网络代码（GGPO 风格）</strong></td>
+<td>用于格斗游戏——保存状态、预测错误时回滚、重新模拟</td>
+<td>GGPO 白皮书、「确定性 Lockstep &amp; Rollback」</td>
 </tr>
 <tr>
-<td><strong>Misprediction Handling</strong></td>
-<td>Smoothing corrections (not snapping), error thresholds, teleport thresholds</td>
+<td><strong>预测错误处理</strong></td>
+<td>平滑修正（不跳变）、误差阈值、传送阈值</td>
 <td>FishNet <code>PredictionManager</code> source</td>
 </tr>
 </tbody>
 </table>
-<h3 id="4-5-engine-specific-knowledge">4.5 Engine-Specific Knowledge</h3>
+<h3 id="4-5-engine-specific-knowledge">4.5 引擎特定知识</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Unity Path</th>
-<th>Unreal Engine Path</th>
+<th>主题</th>
+<th>Unity 路径</th>
+<th>Unreal Engine 路径</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Transport Layer</strong></td>
+<td><strong>传输层</strong></td>
 <td>Mirror <code>Transport</code> class, FishNet <code>Transport</code> class — abstract, well-documented</td>
 <td>UE <code>UNetDriver</code>, <code>UIpNetDriver</code> — complex, engine-integrated</td>
 </tr>
 <tr>
-<td><strong>Game Loop Integration</strong></td>
-<td>MonoBehaviour Update/FixedUpdate, NetworkLoop early/late update</td>
-<td>UEngine tick groups, UNetDriver::TickDispatch/TickFlush</td>
+<td><strong>游戏循环集成</strong></td>
+<td>MonoBehaviour Update/FixedUpdate、NetworkLoop 早/晚更新</td>
+<td>UEngine tick groups、UNetDriver::TickDispatch/TickFlush</td>
 </tr>
 <tr>
-<td><strong>Object Lifecycle</strong></td>
+<td><strong>对象生命周期</strong></td>
 <td>NetworkBehaviour.OnStartServer/OnStartClient/OnNetworkDestroy</td>
-<td>AActor::BeginPlay/EndPlay with Authority checks</td>
+<td>AActor::BeginPlay/EndPlay 带 Authority 检查</td>
 </tr>
 <tr>
-<td><strong>RPC System</strong></td>
+<td><strong>RPC 系统</strong></td>
 <td>Mirror <code>[Command]</code>/<code>[ClientRpc]</code>, FishNet ServerRpc/ObserversRpc</td>
-<td>UFUNCTION(Server, Reliable) etc — deeply integrated</td>
+<td>UFUNCTION(Server, Reliable) 等——深度集成</td>
 </tr>
 <tr>
-<td><strong>Protobuf C#/C++ Usage</strong></td>
+<td><strong>Protobuf C#/C++ 使用</strong></td>
 <td><code>Google.Protobuf</code> NuGet, <code>protobuf-net</code> — mature</td>
 <td><code>protobuf</code> CMake, custom serialization — verbose</td>
 </tr>
 <tr>
-<td><strong>Build Pipeline</strong></td>
-<td>IL2CPP for dedicated server builds</td>
-<td>Unreal Build Tool, server target platform</td>
+<td><strong>构建管线</strong></td>
+<td>IL2CPP 用于专用服务器构建</td>
+<td>Unreal Build Tool、服务器目标平台</td>
 </tr>
 </tbody>
 </table>
-<h3 id="4-6-ares-specific-knowledge-from-the-existing-framework">4.6 Ares-Specific Knowledge (from the existing framework)</h3>
+<h3 id="4-6-ares-specific-knowledge-from-the-existing-framework">4.6 Ares 特定知识（来自现有框架）</h3>
 <table>
 <thead>
 <tr>
-<th>Topic</th>
-<th>Description</th>
+<th>主题</th>
+<th>描述</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Ares Protocol</strong></td>
-<td>Protobuf messages for Gateway, Game, Room, Battle, Chat services</td>
+<td><strong>Ares 协议</strong></td>
+<td>Gateway、Game、Room、Battle、Chat 服务的 Protobuf 消息</td>
 </tr>
 <tr>
-<td><strong>MsgCategory Routing</strong></td>
-<td>Gateway intelligently routes messages by category (auth, match, battle, chat)</td>
+<td><strong>MsgCategory 路由</strong></td>
+<td>Gateway 按类别智能路由消息（auth、match、battle、chat）</td>
 </tr>
 <tr>
-<td><strong>BattleServer Sync Modes</strong></td>
-<td>Lockstep (FrameData broadcast), StateSync (AOI), Hybrid (validation)</td>
+<td><strong>BattleServer 同步模式</strong></td>
+<td>Lockstep（FrameData 广播）、StateSync（AOI）、Hybrid（验证）</td>
 </tr>
 <tr>
-<td><strong>Room/Battle Allocation</strong></td>
-<td>How RoomService assigns players to BattleServer instances</td>
+<td><strong>房间/战斗分配</strong></td>
+<td>RoomService 如何将玩家分配到 BattleServer 实例</td>
 </tr>
 <tr>
-<td><strong>Gateway Architecture</strong></td>
-<td>TCP connection management, LRU session cache, load balancing</td>
+<td><strong>Gateway 架构</strong></td>
+<td>TCP 连接管理、LRU 会话缓存、负载均衡</td>
 </tr>
 <tr>
-<td><strong>gRPC Service Definitions</strong></td>
-<td>Internal service contracts between Gateway/Game/Room/Battle services</td>
+<td><strong>gRPC 服务定义</strong></td>
+<td>Gateway/Game/Room/Battle 服务之间的内部服务契约</td>
 </tr>
 <tr>
-<td><strong>Stress Bot</strong></td>
-<td>Existing stress testing tools — useful for validating client framework</td>
+<td><strong>压力测试机器人</strong></td>
+<td>现有的压力测试工具——可用于验证客户端框架</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2 id="5-practical-recommendations">5. Practical Recommendations</h2>
+<hr/>
+<h2 id="5-practical-recommendations">5. 实践建议</h2>
 <h3 id="5-1-engine-recommendation-unity-fishnet-or-mirror">5.1 Engine Recommendation: <strong>Unity + FishNet</strong> (or Mirror)</h3>
-<p><strong>For building a custom client framework on Ares, Unity with Mirror or FishNet is the clear winner.</strong></p>
-<p><strong>Reasons:</strong>
-1. <strong>Transport abstraction is the killer feature.</strong> You can write ~200 lines of C# to bridge the netcode to Ares. No engine modification needed.
-2. <strong>Iteration speed is critical</strong> when building a custom client framework — Unity's fast compile times and Play Mode are huge advantages.
-3. <strong>FishNet's prediction system</strong> is the best reference implementation for building your Ares client framework. You can either use it directly or study it.
-4. <strong>C# talent is plentiful and cheaper</strong> than C++ UE developers. Faster hiring for a networking-heavy project.
-5. <strong>You control the entire networking stack.</strong> Unity netcode + custom Transport + Ares = clean layered architecture.
-6. <strong>Mirror is MIT — zero cost, zero risk.</strong> FishNet's Pro is $50-100 one-time.</p>
-<p><strong>Mirror vs FishNet:</strong>
+<p><strong>对于在 Ares 上构建自定义客户端框架，Unity + Mirror 或 FishNet 是明显的赢家。</strong></p>
+<p><strong>理由：</strong>
+1. <strong>Transport 抽象是杀手级特性。</strong> 你只需写约 200 行 C# 即可将网络代码桥接到 Ares。无需修改引擎。
+2. <strong>Iteration speed is critical</strong> 构建自定义客户端框架时——Unity 的快速编译时间和播放模式是巨大优势。
+3. <strong>FishNet's prediction system</strong> 是构建 Ares 客户端框架的最佳参考实现。你可以直接使用或作为参考研究。
+4. <strong>C# 人才比 C++ UE 开发者更丰富且成本更低。</strong> 对于重网络的项目招聘更快。
+5. <strong>你掌控整个网络栈。</strong> Unity netcode + 自定义 Transport + Ares = 清晰的分层架构。
+6. <strong>Mirror 是 MIT 许可证——零成本、零风险。</strong> FishNet's Pro is $50-100 one-time.</p>
+<p><strong>Mirror vs FishNet：</strong>
 - If you need <strong>built-in prediction/reconciliation now</strong>: FishNet
-- If you want <strong>zero cost, MIT license, proven at scale</strong> (100M+ players): Mirror
-- If you plan to <strong>build custom prediction</strong> anyway: Mirror (simpler codebase to understand)
-- If you want <strong>the most advanced feature set</strong>: FishNet</p>
-<h3 id="5-2-recommended-architecture">5.2 Recommended Architecture</h3>
+- If you want <strong>零成本、MIT 许可证、经过大规模验证</strong> （1 亿+ 玩家）：Mirror
+- If you plan to <strong>build custom prediction</strong> ：Mirror（代码库更简单易懂）
+- If you want <strong>最先进的功能集</strong>: FishNet</p>
+<h3 id="5-2-recommended-architecture">5.2 推荐架构</h3>
 <div class="codehilite"><pre><span></span><code><span class="n">Unity</span><span class="w"> </span><span class="n">Client</span>
 <span class="err">├──</span><span class="w"> </span><span class="n">AresClientTransport</span><span class="w"> </span><span class="p">(</span><span class="n">custom</span><span class="w"> </span><span class="n">Mirror</span><span class="o">/</span><span class="n">FishNet</span><span class="w"> </span><span class="n">Transport</span><span class="p">)</span>
 <span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">TCP</span><span class="w"> </span><span class="n">Socket</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Ares</span><span class="w"> </span><span class="n">Gateway</span>
@@ -522,30 +523,29 @@
 <span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="nl">Action:</span><span class="w"> </span><span class="n">Combo</span><span class="w"> </span><span class="n">system</span><span class="p">,</span><span class="w"> </span><span class="n">animation</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="n">machine</span>
 <span class="err">└──</span><span class="w"> </span><span class="n">Unity</span><span class="w"> </span><span class="n">Rendering</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">Input</span>
 </code></pre></div>
-
-<h3 id="5-3-when-to-choose-unreal-engine">5.3 When to Choose Unreal Engine</h3>
-<p>Only choose UE if:
-- You need <strong>AAA-level graphics</strong> out of the box (Nanite, Lumen, Niagara)
-- You're building a <strong>first-person shooter</strong> where UE's built-in character movement/prediction saves massive dev time (but consider: you'd need to port that to work with Ares)
-- Your team has <strong>strong C++ UE engineers</strong> already
+<h3 id="5-3-when-to-choose-unreal-engine">5.3 何时选择 Unreal Engine</h3>
+<p>仅在选择以下条件时选择 UE：
+- You need <strong>AAA-level graphics</strong> 开箱即用（Nanite、Lumen、Niagara）
+- You're building a <strong>first-person shooter</strong> ，UE 的内置角色移动/预测可以节省大量开发时间（但需注意：你需要将其移植以适配 Ares）
+- 你的团队已有 <strong>strong C++ UE engineers</strong> 已有
 - You're willing to spend <strong>significantly more engineering time</strong> on network integration</p>
-<h3 id="5-4-development-roadmap">5.4 Development Roadmap</h3>
+<h3 id="5-4-development-roadmap">5.4 开发路线图</h3>
 <ol>
-<li><strong>Week 1-2:</strong> Study Ares Protobuf definitions and Gateway protocol</li>
-<li><strong>Week 3-4:</strong> Build <code>AresClientTransport</code> for Mirror (implement Transport abstract class)</li>
-<li><strong>Week 5-6:</strong> Implement basic Lockstep client (input → Ares → FrameData → execute)</li>
-<li><strong>Week 7-8:</strong> Add StateSync client (receive state updates, apply with AOI)</li>
+<li><strong>Week 1-2:</strong> 研究 Ares Protobuf 定义和 Gateway 协议</li>
+<li><strong>Week 3-4:</strong> Build <code>AresClientTransport</code> 为 Mirror 构建 AresClientTransport（实现 Transport 抽象类）</li>
+<li><strong>Week 5-6:</strong> 实现基础 Lockstep 客户端（输入 → Ares → FrameData → 执行）</li>
+<li><strong>Week 7-8:</strong> 添加 StateSync 客户端（接收状态更新，结合 AOI 应用）</li>
 <li><strong>Week 9-10:</strong> Implement prediction and reconciliation</li>
-<li><strong>Week 11-12:</strong> Build genre-specific game logic on top</li>
-<li><strong>Ongoing:</strong> Stress test with existing stress-bot infrastructure</li>
+<li><strong>Week 11-12:</strong> 在上层构建特定类型的游戏逻辑</li>
+<li><strong>Ongoing:</strong> 使用现有 stress-bot 基础设施进行压力测试</li>
 </ol>
-<hr />
-<h2 id="appendix-a-quick-reference-card">Appendix A: Quick Reference Card</h2>
-<h3 id="unity-netcode-feature-comparison">Unity Netcode Feature Comparison</h3>
+<hr/>
+<h2 id="appendix-a-quick-reference-card">附录 A：快速参考卡片</h2>
+<h3 id="unity-netcode-feature-comparison">Unity Netcode 功能对比</h3>
 <table>
 <thead>
 <tr>
-<th>Feature</th>
+<th>功能</th>
 <th>Mirror</th>
 <th>FishNet</th>
 <th>NGO</th>
@@ -555,15 +555,15 @@
 </thead>
 <tbody>
 <tr>
-<td>Transport Abstraction</td>
+<td>Transport 抽象</td>
 <td>✅</td>
 <td>✅</td>
-<td>⚠️ Limited</td>
+<td>⚠️ 有限</td>
 <td>❌</td>
 <td>❌</td>
 </tr>
 <tr>
-<td>Custom Backend Support</td>
+<td>自定义后端支持</td>
 <td>✅</td>
 <td>✅</td>
 <td>❌</td>
@@ -571,12 +571,12 @@
 <td>❌</td>
 </tr>
 <tr>
-<td>Client Prediction</td>
-<td>🔄 Dev</td>
-<td>✅ Built-in</td>
+<td>客户端预测</td>
+<td>🔄 开发中</td>
+<td>✅ 内置</td>
 <td>❌</td>
 <td>✅</td>
-<td>✅ (rollback)</td>
+<td>✅（回滚）</td>
 </tr>
 <tr>
 <td>Lag Compensation</td>
@@ -587,7 +587,7 @@
 <td>✅</td>
 </tr>
 <tr>
-<td>Snapshot Interpolation</td>
+<td>快照插值</td>
 <td>✅</td>
 <td>✅</td>
 <td>✅</td>
@@ -595,77 +595,77 @@
 <td>✅</td>
 </tr>
 <tr>
-<td>Lockstep Support</td>
+<td>Lockstep 支持</td>
 <td>❌</td>
 <td>❌</td>
 <td>❌</td>
 <td>❌</td>
-<td>✅ (built-in)</td>
+<td>✅（内置）</td>
 </tr>
 <tr>
-<td>Dedicated Server (Linux)</td>
+<td>专用服务器（Linux）</td>
 <td>✅</td>
 <td>✅</td>
 <td>✅</td>
-<td>☁️ Cloud only</td>
-<td>☁️ Cloud only</td>
+<td>☁️ 仅云端</td>
+<td>☁️ 仅云端</td>
 </tr>
 <tr>
-<td>Open Source</td>
+<td>开源</td>
 <td>✅ MIT</td>
-<td>⚠️ Custom</td>
+<td>⚠️ 自定义</td>
 <td>✅ MIT</td>
 <td>❌</td>
 <td>❌</td>
 </tr>
 </tbody>
 </table>
-<h3 id="ares-integration-scorecard">Ares Integration Scorecard</h3>
+<h3 id="ares-integration-scorecard">Ares 集成评分卡</h3>
 <table>
 <thead>
 <tr>
-<th>Unity Framework</th>
-<th>Integration Difficulty</th>
-<th>Lines of Code</th>
-<th>Prediction Support</th>
-<th>Lockstep Compatibility</th>
+<th>Unity 框架</th>
+<th>集成难度</th>
+<th>代码量</th>
+<th>预测支持</th>
+<th>Lockstep 兼容性</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Mirror</strong></td>
-<td>Easy (~200 LOC)</td>
-<td>Transport class</td>
-<td>Must build custom</td>
-<td>✅ Protocol-level</td>
+<td>简单（~200 行）</td>
+<td>Transport 类</td>
+<td>需自定义构建</td>
+<td>✅ 协议级别</td>
 </tr>
 <tr>
 <td><strong>FishNet</strong></td>
-<td>Easy (~200 LOC)</td>
-<td>Transport class</td>
-<td>✅ Built-in</td>
-<td>✅ Protocol-level</td>
+<td>简单（~200 行）</td>
+<td>Transport 类</td>
+<td>✅ 内置</td>
+<td>✅ 协议级别</td>
 </tr>
 <tr>
 <td><strong>NGO</strong></td>
-<td>Moderate (~500 LOC)</td>
-<td>Custom NetworkTransport</td>
-<td>Must build</td>
-<td>✅ Protocol-level</td>
+<td>中等（~500 行）</td>
+<td>自定义 NetworkTransport</td>
+<td>需构建</td>
+<td>✅ 协议级别</td>
 </tr>
 <tr>
 <td><strong>Photon Fusion</strong></td>
-<td><strong>Impossible</strong></td>
+<td><strong>不可能</strong></td>
 <td>N/A</td>
-<td>Irrelevant</td>
-<td>❌ Closed system</td>
+<td>不适用</td>
+<td>❌ 封闭系统</td>
 </tr>
 <tr>
 <td><strong>Photon Quantum</strong></td>
-<td><strong>Impossible</strong></td>
+<td><strong>不可能</strong></td>
 <td>N/A</td>
-<td>Irrelevant</td>
-<td>❌ Closed system</td>
+<td>不适用</td>
+<td>❌ 封闭系统</td>
 </tr>
 </tbody>
 </table>
@@ -673,31 +673,31 @@
 <thead>
 <tr>
 <th>Unreal Engine</th>
-<th>Integration Difficulty</th>
-<th>Lines of Code</th>
-<th>Prediction Support</th>
-<th>Lockstep Compatibility</th>
+<th>集成难度</th>
+<th>代码量</th>
+<th>预测支持</th>
+<th>Lockstep 兼容性</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>UE5 (bypass)</strong></td>
-<td>Hard (~2000+ LOC)</td>
-<td>Custom network layer</td>
-<td>Must build custom</td>
-<td>⚠️ Non-deterministic physics</td>
+<td>困难（~2000+ 行）</td>
+<td>自定义网络层</td>
+<td>需自定义构建</td>
+<td>⚠️ 非确定性物理</td>
 </tr>
 <tr>
 <td><strong>UE5 (NetDriver)</strong></td>
-<td>Very Hard (~5000+ LOC)</td>
-<td>NetDriver subclass</td>
-<td>Must rebuild</td>
-<td>⚠️ Non-deterministic physics</td>
+<td>非常困难（~5000+ 行）</td>
+<td>NetDriver 子类</td>
+<td>需重建</td>
+<td>⚠️ 非确定性物理</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2 id="appendix-b-key-external-resources">Appendix B: Key External Resources</h2>
+<hr/>
+<h2 id="appendix-b-key-external-resources">附录 B：关键外部资源</h2>
 <ul>
 <li><strong>GafferOnGames:</strong> https://gafferongames.com — foundational articles on game networking</li>
 <li><strong>Gabriel Gambetta:</strong> https://www.gabrielgambetta.com/client-server-game-architecture.html — client prediction explained</li>
