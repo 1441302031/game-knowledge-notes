@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>game-server-methodology</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#游戏服务器架构方法论">游戏服务器架构方法论</a></li>
+<li style="margin-left:12px"><a href="#一、核心原则">一、核心原则</a></li>
+<li style="margin-left:12px"><a href="#二、设计方法论-拿到需求怎么下手">二、设计方法论：拿到需求怎么下手？</a></li>
+<li style="margin-left:12px"><a href="#三、与语言无关的核心技术领域">三、与语言无关的核心技术领域</a></li>
+<li style="margin-left:12px"><a href="#四、重构后的学习计划">四、重构后的学习计划</a></li>
+<li style="margin-left:12px"><a href="#五、面试时的叙事框架">五、面试时的叙事框架</a></li>
+<li style="margin-left:12px"><a href="#六、归档">六、归档</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="游戏服务器架构方法论">游戏服务器架构方法论</h1>
+<blockquote>
+<p>语言是工具，架构是思想。本文档提炼 Ares 项目中可迁移到任何语言（C++/Go/Java）的通用设计方法论。</p>
+</blockquote>
+<hr />
+<h2 id="一、核心原则">一、核心原则</h2>
+<h3 id="1-1-协议先行">1.1 协议先行</h3>
+<p><strong>不管你用什么语言，第一步永远是定义消息。</strong></p>
+<div class="codehilite"><pre><span></span><code>错误的做法：先写 Gateway 代码，边写边加字段
+正确的做法：先写 .proto，所有服务基于同一份契约开发
+</code></pre></div>
+
+<p>Ares 的做法：6 个 proto 文件（common/gateway/game/room/battle/chat），所有服务共享 <code>ares-common</code> crate。换成 C++ 就是同一个 protobuf 生成的 <code>.pb.h/.pb.cc</code>，所有服务链接同一个库。</p>
+<p><strong>面试时这样说：</strong></p>
+<blockquote>
+<p>"我们采用协议先行（Contract-First）的开发模式。所有服务间通信基于 protobuf 定义，服务端和客户端 SDK 从同一份 proto 生成代码。这保证了——不管后端用什么语言重写、不管客户端是 Unity 还是 UE，契约不会变。"</p>
+</blockquote>
+<h3 id="1-2-分层解耦">1.2 分层解耦</h3>
+<p><strong>游戏服务器的分层是通用的，与语言无关：</strong></p>
+<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────┐
+│           Client (Unity/UE)         │  ← 表现层
+├─────────────────────────────────────┤
+│   Gateway（TCP 接入 / 消息路由）      │  ← 接入层
+├──────────┬──────────┬───────────────┤
+│   Game   │   Room   │    Chat       │  ← 业务层
+│ (Auth/   │ (房间/   │  (聊天/       │
+│  Match)  │  分配)   │   社交)       │
+├──────────┴──────────┴───────────────┤
+│          Battle（战斗引擎）           │  ← 计算层
+├─────────────────────────────────────┤
+│   etcd / MySQL / Redis / Docker     │  ← 基础设施层
+└─────────────────────────────────────┘
+</code></pre></div>
+
+<p><strong>每一层关心的事情不同，对语言的要求也不同：</strong></p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>核心关注点</th>
+<th>C++ 实现</th>
+<th>Rust 实现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>接入层</td>
+<td>高并发连接、低延迟转发</td>
+<td>epoll + libuv / boost.asio</td>
+<td>Tokio TCP</td>
+</tr>
+<tr>
+<td>业务层</td>
+<td>逻辑正确性、状态管理</td>
+<td>Actor 模式 / 状态机</td>
+<td>Arc&lt;RwLock&lt;&gt;&gt;</td>
+</tr>
+<tr>
+<td>计算层</td>
+<td>CPU 密集型（模拟/物理）</td>
+<td>线程池 + SIMD</td>
+<td>Rayon / 裸线程</td>
+</tr>
+<tr>
+<td>基础设施</td>
+<td>可靠性、一致性</td>
+<td>etcd-cpp-apiv3</td>
+<td>etcd-client</td>
+</tr>
+</tbody>
+</table>
+<p><strong>面试时这样说：</strong></p>
+<blockquote>
+<p>"分层设计的本质是隔离变化。Gateway 不关心匹配算法怎么实现，Battle 不关心玩家从哪个 Gateway 接入。每一层可以独立扩缩容、独立用不同语言重写。"</p>
+</blockquote>
+<h3 id="1-3-为失败设计">1.3 为失败设计</h3>
+<p><strong>任何服务调用都可能失败，这是分布式系统的第一定律。</strong></p>
+<p>Ares 目前做得好的：心跳检测 + 超时踢出
+Ares 还没做的（但方法论上必须有）：</p>
+<ul>
+<li><strong>熔断</strong>：某个后端连续失败 N 次 → 暂时不再请求它</li>
+<li><strong>重试</strong>：指数退避 + jitter（防止惊群）</li>
+<li><strong>降级</strong>：etcd 不可用时，fallback 到静态配置</li>
+<li><strong>幂等</strong>：同一个匹配请求不能重复处理</li>
+</ul>
+<p><strong>面试时这样说：</strong></p>
+<blockquote>
+<p>"我们为每个 gRPC 调用设置了超时和重试策略。对于匹配这种关键路径，我们用 etcd 的 CAS 操作保证幂等——即使重试，同一个玩家不会被匹配两次。对于非关键路径如聊天，允许短暂失败。"</p>
+</blockquote>
+<hr />
+<h2 id="二、设计方法论-拿到需求怎么下手">二、设计方法论：拿到需求怎么下手？</h2>
+<h3 id="2-1-数据流优先">2.1 数据流优先</h3>
+<p><strong>不要上来就写代码。先画数据流图。</strong></p>
+<p>以 Ares 的「匹配 → 进入战斗」为例：</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">Player</span><span class="w"> </span><span class="err">──</span><span class="nx">TCP</span><span class="err">──▶</span><span class="w"> </span><span class="nx">Gateway</span><span class="w"> </span><span class="err">──</span><span class="nx">gRPC</span><span class="err">──▶</span><span class="w"> </span><span class="nx">Game</span><span class="o">/</span><span class="nx">MatchEngine</span>
+<span class="w">                                       </span><span class="err">│</span>
+<span class="w">                                 </span><span class="nx">匹配成功</span><span class="err">？</span>
+<span class="w">                                       </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">┌──────────────────┘</span>
+<span class="w">                    </span><span class="err">▼</span>
+<span class="w">              </span><span class="nx">RoomManager</span><span class="p">.</span><span class="nx">create_room</span><span class="p">()</span>
+<span class="w">                    </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">▼</span>
+<span class="w">              </span><span class="nx">Battle</span><span class="w"> </span><span class="nx">节点分配</span><span class="err">（</span><span class="nx">LeastLoaded</span><span class="err">）</span>
+<span class="w">                    </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">▼</span>
+<span class="w">              </span><span class="nx">BattleServer</span><span class="p">.</span><span class="nx">create_battle</span><span class="p">()</span>
+<span class="w">                    </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">▼</span>
+<span class="w">              </span><span class="nx">返回</span><span class="w"> </span><span class="nx">battle_addr</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">join_token</span>
+<span class="w">                    </span><span class="err">│</span>
+<span class="w">                    </span><span class="err">▼</span>
+<span class="w">              </span><span class="nx">Client</span><span class="w"> </span><span class="nx">直连</span><span class="w"> </span><span class="nx">BattleServer</span><span class="err">（</span><span class="nx">UDP</span><span class="o">/</span><span class="nx">WebSocket</span><span class="err">）</span>
+</code></pre></div>
+
+<p><strong>画完数据流后，自然就能回答：</strong>
+- 哪些调用是同步的？哪些可以异步？
+- 每个环节失败怎么办？
+- 瓶颈在哪里？</p>
+<h3 id="2-2-状态边界清晰化">2.2 状态边界清晰化</h3>
+<p><strong>每个服务有自己的状态域，不要越界：</strong></p>
+<table>
+<thead>
+<tr>
+<th>服务</th>
+<th>拥有的状态</th>
+<th>不拥有的状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gateway</td>
+<td>连接 session、心跳时间</td>
+<td>玩家 MMR、房间信息</td>
+</tr>
+<tr>
+<td>Game</td>
+<td>玩家在线状态、匹配池</td>
+<td>战斗帧数据</td>
+</tr>
+<tr>
+<td>Room</td>
+<td>房间列表、Battle 分配</td>
+<td>战斗逻辑</td>
+</tr>
+<tr>
+<td>Battle</td>
+<td>战斗实例、帧数据、录像</td>
+<td>玩家账号信息</td>
+</tr>
+</tbody>
+</table>
+<p><strong>面试时这样说：</strong></p>
+<blockquote>
+<p>"我们把状态严格限定在所属服务内。比如 Battle 挂了，只影响当前战斗——玩家可以立刻重新匹配。如果所有状态都放在一个单体里，一个模块挂了整个游戏就停了。"</p>
+</blockquote>
+<h3 id="2-3-一致性模型分级">2.3 一致性模型分级</h3>
+<p><strong>不是所有场景都需要强一致性：</strong></p>
+<div class="codehilite"><pre><span></span><code>强一致性（CP）         最终一致性             可用性优先（AP）
+──────────────────────────────────────────────────────
+匹配结果（不能重复）    房间状态变更通知         Gateway 路由
+战斗帧顺序              玩家在线状态             聊天消息
+MMR 结算                排行榜更新              心跳
+</code></pre></div>
+
+<p><strong>面试时这样说：</strong></p>
+<blockquote>
+<p>"匹配引擎用 etcd 的原子操作保证不会重复匹配——这是 CP。Gateway 的路由表通过 watch etcd 更新，允许短暂不一致——这是 AP。不同场景选不同的一致性模型，这是分布式系统设计的核心 trade-off。"</p>
+</blockquote>
+<hr />
+<h2 id="三、与语言无关的核心技术领域">三、与语言无关的核心技术领域</h2>
+<p>以下每个领域，Ares 已经有 Rust 实现。你需要在方法论层面理解它们，能换成 C++ 描述。</p>
+<h3 id="3-1-网络模型">3.1 网络模型</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>Rust（Ares）</th>
+<th>C++ 等价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>异步 TCP</td>
+<td><code>tokio::net::TcpListener</code></td>
+<td><code>boost::asio::ip::tcp::acceptor</code> + <code>io_context</code></td>
+</tr>
+<tr>
+<td>消息编解码</td>
+<td><code>tokio_util::codec::Framed</code></td>
+<td>自定义 length-prefix codec</td>
+</tr>
+<tr>
+<td>gRPC 客户端</td>
+<td><code>tonic</code></td>
+<td><code>grpc++</code>（protobuf 官方）</td>
+</tr>
+<tr>
+<td>广播通道</td>
+<td><code>tokio::sync::broadcast</code></td>
+<td>手写 subscriber list + mutex</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心理解：</strong> 不管什么语言，网络模型都是「事件循环 + 非阻塞 IO」。Rust 的 Tokio、C++ 的 Boost.Asio、Go 的 goroutine——底层都是 epoll/kqueue。</p>
+<h3 id="3-2-并发模型">3.2 并发模型</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>适用场景</th>
+<th>Ares 中用在哪</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Arc&lt;RwLock&lt;T&gt;&gt;</code></td>
+<td>读多写少</td>
+<td>RoomManager, BattleManager</td>
+</tr>
+<tr>
+<td><code>tokio::mpsc</code> channel</td>
+<td>消息驱动</td>
+<td>Gateway session → 写 half</td>
+</tr>
+<tr>
+<td><code>AtomicU64</code></td>
+<td>无锁计数</td>
+<td>连接数、请求数统计</td>
+</tr>
+<tr>
+<td><code>parking_lot::RwLock</code></td>
+<td>更快的读写锁</td>
+<td>MatchEngine</td>
+</tr>
+</tbody>
+</table>
+<p><strong>C++ 等价：</strong> <code>std::shared_mutex</code>, <code>std::atomic</code>, <code>boost::lockfree::queue</code></p>
+<h3 id="3-3-战斗同步模式">3.3 战斗同步模式</h3>
+<p>这是 Ares 的<strong>核心竞争力</strong>。三种同步模式与语言完全无关：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>服务器做什么</th>
+<th>客户端做什么</th>
+<th>适用游戏</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lockstep</td>
+<td>收集输入 → 广播</td>
+<td>确定性执行</td>
+<td>RTS、格斗、MOBA</td>
+</tr>
+<tr>
+<td>StateSync</td>
+<td>执行逻辑 → 广播状态</td>
+<td>预测 + 插值</td>
+<td>FPS、MMO</td>
+</tr>
+<tr>
+<td>Hybrid</td>
+<td>Lockstep 为主 + 服务器抽查</td>
+<td>正常 Lockstep</td>
+<td>竞技型</td>
+</tr>
+</tbody>
+</table>
+<p><strong>面试时这样说（C++ 面试官也能听懂）：</strong></p>
+<blockquote>
+<p>"我实现了三种同步模式。Lockstep 的核心是一个 InputBuffer——客户端提前 N 帧发输入，服务器按帧收集后广播。这跟语言无关，核心是一个 HashMap<FrameNum, HashMap\<PlayerId, Input>>。换成 C++ 就是 std::unordered_map<uint64_t, std::unordered_map\<uint64_t, PlayerInput>>。"</p>
+</blockquote>
+<h3 id="3-4-匹配算法">3.4 匹配算法</h3>
+<p>Ares 的匹配引擎是完全语言无关的纯算法：</p>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">按</span><span class="w"> </span><span class="n">MMR</span><span class="w"> </span><span class="n">分桶</span><span class="err">（</span><span class="n">mmr</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">100</span><span class="err">）</span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">每</span><span class="w"> </span><span class="mf">2</span><span class="w"> </span><span class="n">秒一轮撮合</span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">ELO</span><span class="w"> </span><span class="n">范围逐轮扩大</span><span class="err">：±</span><span class="mf">50</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="err">±</span><span class="mf">75</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="err">±</span><span class="mf">100</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="mf">...</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="err">±</span><span class="mf">300</span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">ABBA</span><span class="w"> </span><span class="n">分边保证公平</span>
+</code></pre></div>
+
+<p><strong>C++ 等价：</strong> <code>std::map&lt;uint32_t, std::deque&lt;MatchRequest&gt;&gt;</code></p>
+<hr />
+<h2 id="四、重构后的学习计划">四、重构后的学习计划</h2>
+<p><strong>把「学 Rust」替换为「学分布式系统设计模式」，语言只是验证工具。</strong></p>
+<h3 id="阶段一-分布式系统核心模式-2-周">阶段一：分布式系统核心模式（2 周）</h3>
+<p>不再学「Rust 怎么用 etcd」，而是学「服务发现的设计模式」：</p>
+<ul>
+<li>注册模式：Self-Registration vs Third-Party Registration</li>
+<li>发现模式：Client-Side Discovery vs Server-Side Discovery</li>
+<li>健康检查：Push（心跳）vs Pull（健康端点）</li>
+<li>用 etcd 在 Ares 中落地（语言无关，换成 ZooKeeper/Consul 同理）</li>
+</ul>
+<h3 id="阶段二-数据架构模式-2-周">阶段二：数据架构模式（2 周）</h3>
+<ul>
+<li>CQRS：命令查询职责分离</li>
+<li>Event Sourcing：事件溯源</li>
+<li>缓存策略：Cache-Aside / Write-Through / Write-Behind</li>
+<li>分库分表：垂直拆分 vs 水平拆分</li>
+<li>在 Ares 中选择合适的策略落地</li>
+</ul>
+<h3 id="阶段三-容错与弹性模式-2-周">阶段三：容错与弹性模式（2 周）</h3>
+<ul>
+<li>Circuit Breaker（熔断器）</li>
+<li>Bulkhead（舱壁隔离）</li>
+<li>Retry + Backoff + Jitter</li>
+<li>Timeout 层级设置</li>
+<li>优雅降级</li>
+</ul>
+<h3 id="阶段四-可观测性-2-周">阶段四：可观测性（2 周）</h3>
+<ul>
+<li>三大支柱：Logging / Metrics / Tracing</li>
+<li>结构化日志的设计原则</li>
+<li>RED 方法论（Rate / Error / Duration）</li>
+<li>Prometheus + Grafana 落地</li>
+</ul>
+<h3 id="阶段五-系统设计面试-4-周">阶段五：系统设计面试（4 周）</h3>
+<ul>
+<li>白板画架构图</li>
+<li>容量估算（QPS、带宽、存储）</li>
+<li>Trade-off 分析</li>
+<li>模拟面试</li>
+</ul>
+<hr />
+<h2 id="五、面试时的叙事框架">五、面试时的叙事框架</h2>
+<p><strong>30 秒版本：</strong></p>
+<blockquote>
+<p>"我做了一个分布式游戏服务器框架，核心是分层架构 + 三种战斗同步模式。技术栈是 Rust，但设计方法论是语言无关的——换成 C++ 就是换套标准库的事。"</p>
+</blockquote>
+<p><strong>5 分钟深度版（按这个结构讲）：</strong>
+1. <strong>协议先行</strong>：6 个 proto，客户端和服务端共享契约
+2. <strong>分层解耦</strong>：Gateway / Game / Room / Battle / Chat 各司其职
+3. <strong>战斗引擎</strong>：三种同步模式的 trade-off 分析
+4. <strong>匹配系统</strong>：ELO + 逐轮放宽 + ABBA 分边
+5. <strong>分布式设计</strong>：etcd 服务发现 / CAP 权衡 / 故障处理</p>
+<p><strong>被问「Rust 项目投 C++ 岗位？」时的回答：</strong></p>
+<blockquote>
+<p>"Ares 虽然用 Rust 写的，但它的架构设计——分层解耦、协议先行、同步模式——跟语言完全无关。我选 Rust 是因为它强制我思考内存安全和并发安全，这些思考在 C++ 里同样适用。实际上，Ares 里的每个组件我都能用 C++ 重新描述一遍实现方案。"</p>
+</blockquote>
+<hr />
+<h2 id="六、归档">六、归档</h2>
+<p>这份方法论不替代之前的详细学习计划（http://8.163.49.163:8666/ares_job_study_plan.html），而是它的<strong>指导思想层</strong>。</p>
+<ul>
+<li>学习计划 = 具体做什么</li>
+<li>本文档 = 为什么要这样做 + 背后的通用原则</li>
+</ul>
+<p>两者配合使用。</p>
+</main>
+</body>
+</html>

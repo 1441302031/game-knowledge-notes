@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares 文档站</title>
+<link rel="stylesheet" href="/ghibli.css">
+<style>
+  .file-list {
+    list-style: none; padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+  .file-list li { margin: 0; }
+  .file-list a {
+    display: block;
+    background: var(--ghibli-card);
+    border: 1px solid var(--ghibli-border);
+    border-radius: var(--ghibli-radius);
+    padding: 18px 20px;
+    color: var(--ghibli-text);
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: var(--ghibli-shadow);
+    font-family: var(--ghibli-font-sans);
+    font-size: 14px;
+    height: 100%;
+  }
+  .file-list a:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ghibli-shadow-hover);
+    border-color: var(--ghibli-red);
+  }
+  .file-list .name {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--ghibli-red);
+    font-size: 15px;
+  }
+  .file-list .desc {
+    display: block;
+    font-size: 12px;
+    color: var(--ghibli-text2);
+    line-height: 1.6;
+  }
+  .section-intro {
+    color: var(--ghibli-text2);
+    font-size: 14px;
+    margin: 0 0 16px;
+    font-family: var(--ghibli-font-sans);
+    border-left: 3px solid var(--ghibli-teal);
+    padding-left: 14px;
+  }
+</style>
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+  <h2 class="ghibli-sidebar-title">📚 文档索引</h2>
+  <a href="#methodology">🏛️ 架构方法论</a>
+  <a href="#ares">🎮 Ares 项目</a>
+  <a href="#ai-engine">🤖 AI 引擎设计</a>
+  <a href="#other">📦 其他</a>
+</nav>
+<main class="ghibli-main">
+
+<h1>🍃 Ares 文档站</h1>
+<p><code>http://8.163.49.163:8666</code> · 千与千寻 × 龙猫 风格</p>
+<p style="margin-top:4px;color:var(--ghibli-text2);font-size:13px;font-family:var(--ghibli-font-sans);">公共样式库 <code>/ghibli.css</code> · Markdown → HTML 工具 <code>md2html.py</code></p>
+
+<!-- ============ METHODOLOGY ============ -->
+<h2 id="methodology">🏛️ 架构方法论</h2>
+<p class="section-intro">顶层指导 —— 语言无关的设计原则，面试叙事的骨架</p>
+<ul class="file-list">
+  <li><a href="/game-server-methodology.html">
+    <span class="name">📐 游戏服务器架构方法论</span>
+    <span class="desc">语言无关的分布式游戏服务器设计原则。协议先行、分层解耦、为失败设计。含 C++ ↔ Rust 等价实现对照与面试叙事框架。</span>
+  </a></li>
+</ul>
+
+<!-- ============ ARES ============ -->
+<h2 id="ares">🎮 Ares 项目</h2>
+<p class="section-intro">工程实践 —— 分布式游戏服务器框架完整文档</p>
+<ul class="file-list">
+  <li><a href="/ares_job_study_plan.html">
+    <span class="name">📋 求职补齐学习计划</span>
+    <span class="desc">8~12 周结构化指南。5 个阶段：分布式基石 → 数据安全 → 设计模式 → 可观测性 → 系统设计面试。含面试回答模板。</span>
+  </a></li>
+  <li><a href="/stress-test-report.html">
+    <span class="name">📊 端到端压测报告</span>
+    <span class="desc">3 轮压测：50/200/100 连接，零超时零错误，吞吐量最高 3,485 RPS，平均延迟 28.68ms。</span>
+  </a></li>
+  <li><a href="/snhe-architecture.html">
+    <span class="name">🏗️ 分布式架构设计</span>
+    <span class="desc">Gateway / Game / Room / Battle / Chat 五层架构详解，含数据流图和服务交互时序。</span>
+  </a></li>
+  <li><a href="/unity-integration-guide.html">
+    <span class="name">🎯 Unity SDK 接入指南</span>
+    <span class="desc">Unity 客户端 SDK 完整使用手册：连接管理、消息收发、匹配流程、战斗接入，含代码示例。</span>
+  </a></li>
+  <li><a href="/unity-ue-multiplayer-research.html">
+    <span class="name">🔬 Unity vs UE 多人游戏调研</span>
+    <span class="desc">两款引擎网络框架对比：Mirror / NGO / Fish-Net vs UE Replication / EOS，含选型建议。</span>
+  </a></li>
+  <li><a href="/game_perf_ultimate_guide.html">
+    <span class="name">⚡ 游戏性能终极指南</span>
+    <span class="desc">客户端 + 服务端全链路性能优化：渲染管线、网络协议、内存管理、CPU 优化、工具链。</span>
+  </a></li>
+  <li><a href="/game_perf_optimization_guide.html">
+    <span class="name">🦀 Rust 服务端性能优化</span>
+    <span class="desc">Rust 游戏服务器的性能调优实践：零拷贝、内存布局、并发模型选择、火焰图分析。</span>
+  </a></li>
+</ul>
+
+<!-- ============ AI ENGINE ============ -->
+<h2 id="ai-engine">🤖 AI 引擎设计</h2>
+<p class="section-intro">AI Native 游戏编程引擎 —— 从理念到架构</p>
+<ul class="file-list">
+  <li><a href="/ai-native-engine-manifesto.html">
+    <span class="name">📜 AI 原生引擎宣言</span>
+    <span class="desc">核心设计哲学：AI 是引擎的服务层 / 能力模块，开发者通过 API 调用，不是「AI 自动做游戏」。</span>
+  </a></li>
+  <li><a href="/ai-native-engine-hd2d-design.html">
+    <span class="name">🎨 HD-2D 引擎设计</span>
+    <span class="desc">AI 驱动的 2D 游戏引擎设计文档：模块架构、API 设计、AI 能力集成方案。</span>
+  </a></li>
+  <li><a href="/ai-native-engine-v2.html">
+    <span class="name">🔄 引擎 v2 架构</span>
+    <span class="desc">第二代 AI 引擎架构演进：新模块划分、数据流设计、与 LLM 的交互模式。</span>
+  </a></li>
+  <li><a href="/ai-native-game-engine-report.html">
+    <span class="name">📝 AI 引擎技术调研</span>
+    <span class="desc">AI 游戏引擎技术调研报告：现有方案对比、可行性分析、路线图。</span>
+  </a></li>
+  <li><a href="/piccolo-learning-report.html">
+    <span class="name">🎻 Piccolo 引擎源码分析</span>
+    <span class="desc">Piccolo 游戏引擎源码学习笔记：架构分析、核心系统解读、可借鉴的设计模式。</span>
+  </a></li>
+</ul>
+
+<!-- ============ OTHER ============ -->
+<h2 id="other">📦 其他</h2>
+<ul class="file-list">
+  <li><a href="/牙隐裂跨模态_补充章节.html">
+    <span class="name">🦷 牙隐裂跨模态分析</span>
+    <span class="desc">医学影像跨模态分析研究的补充章节。</span>
+  </a></li>
+</ul>
+
+<hr class="ghibli-hr">
+<p class="ghibli-footer">静态文件服务 · 端口 8666 · Ghibli 主题（千与千寻 × 龙猫）<br>公共样式库 <code>/ghibli.css</code> · 工具 <code>md2html.py</code></p>
+</main>
+</body>
+</html>

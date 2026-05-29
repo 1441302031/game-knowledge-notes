@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · ai-native-engine-manifesto</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#ai-native-游戏引擎-设计纲领">AI Native 游戏引擎：设计纲领</a></li>
+<li style="margin-left:12px"><a href="#〇、为什么需要-ai-native-引擎">〇、为什么需要 AI Native 引擎</a></li>
+<li style="margin-left:12px"><a href="#一、核心设计哲学">一、核心设计哲学</a></li>
+<li style="margin-left:12px"><a href="#二、三层操控体系-the-steering-system">二、三层操控体系（The Steering System）</a></li>
+<li style="margin-left:12px"><a href="#三、系统架构">三、系统架构</a></li>
+<li style="margin-left:12px"><a href="#四、mvp-最小的可行第一步">四、MVP：最小的可行第一步</a></li>
+<li style="margin-left:12px"><a href="#五、后续路线图">五、后续路线图</a></li>
+<li style="margin-left:12px"><a href="#六、关键风险">六、关键风险</a></li>
+<li style="margin-left:12px"><a href="#七、与纯神经引擎的本质区别">七、与纯神经引擎的本质区别</a></li>
+<li style="margin-left:12px"><a href="#八、总结">八、总结</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="ai-native-游戏引擎-设计纲领">AI Native 游戏引擎：设计纲领</h1>
+<blockquote>
+<p>状态：v2 — 经过两轮深度讨论后的修订版</p>
+<p>核心纠偏：AI Native 引擎 ≠ AI 自动做游戏的黑箱；AI Native 引擎 = 让人类开发者与 AI 高效协作的编程引擎</p>
+</blockquote>
+<hr />
+<h2 id="〇、为什么需要-ai-native-引擎">〇、为什么需要 AI Native 引擎</h2>
+<h3 id="0-1-传统引擎的根本矛盾">0.1 传统引擎的根本矛盾</h3>
+<p>传统游戏引擎（Unity / Unreal）的设计前提是<strong>人类通过 GUI 操作</strong>。这隐含了一个关键假设：</p>
+<div class="codehilite"><pre><span></span><code>人类操作方式 = 鼠标点击 → 拖拽 → Inspector 面板调参 → Scene 窗口预览
+</code></pre></div>
+
+<p>但 AI（作为游戏开发工程师）的操作方式完全不同：</p>
+<div class="codehilite"><pre><span></span><code>AI 操作方式 = 读写代码 → 调用 API → 文本描述意图 → 读取运行结果
+</code></pre></div>
+
+<p><strong>对 AI 来说，GUI 不是帮助，是障碍。</strong> 每一个按钮、每一个面板、每一个需要"定位点击"的操作，都降低了 AI 的效率。</p>
+<p>更深层的问题：终极目标不是"AI 辅助人类开发"，而是<strong>AI 作为主力开发者</strong>，人类作为协作者和监督者。Unity/Unreal 的架构承载不了这个范式。</p>
+<h3 id="0-2-马与发动机的隐喻">0.2 马与发动机的隐喻</h3>
+<div class="codehilite"><pre><span></span><code>马车时代                      汽车时代
+────────                      ────────
+动力：马                       动力：V12 发动机
+操控：缰绳（直接物理反馈）       操控：方向盘 + 油门 + 仪表盘
+工业体系：马厩/铁匠铺            工业体系：4S店/加油站/驾校/交通法规
+</code></pre></div>
+
+<p>把传统引擎的 GUI 干掉，相当于<strong>把马换成 V12 发动机</strong>。但你不能给驾驶员一根缰绳去控制发动机——<strong>你需要一整套新的操控体系</strong>：</p>
+<ul>
+<li><strong>方向盘</strong>：让开发者表达"我要去哪"的界面（自然语言 + 约束描述）</li>
+<li><strong>油门/刹车</strong>：控制 AI 生成粒度的能力（从全自动到像素级微调）</li>
+<li><strong>仪表盘</strong>：让开发者理解"AI 为什么这么做"的可解释系统</li>
+<li><strong>驾校</strong>：让开发者学会如何与 AI 协作的培训体系</li>
+</ul>
+<h3 id="0-3-目标用户">0.3 目标用户</h3>
+<p><strong>仍然是游戏开发者。</strong> 服务对象没有变，变的是他们手中的工具。</p>
+<p>传统开发者用鼠标点 GUI，AI Native 开发者用<strong>自然语言 + 代码 + 约束文件</strong>驱动引擎。但核心需求不变：做出自己心目中的内容，对最终产物有完全的掌控感。</p>
+<hr />
+<h2 id="一、核心设计哲学">一、核心设计哲学</h2>
+<h3 id="1-1-ai-native-的定义">1.1 AI Native 的定义</h3>
+<div class="codehilite"><pre><span></span><code>AI Native Engine ≡ 将 AI 作为引擎一等公民的游戏编程引擎
+
+其中：
+- 「一等公民」= AI 模块与 Physics、Rendering、Audio 同级
+- 「编程引擎」= 面向开发者的可编程平台，不是黑箱生成器
+- 「人类主导」= 开发者通过新范式操控 AI，而非被 AI 替代
+</code></pre></div>
+
+<h3 id="1-2-与现有方案的对比">1.2 与现有方案的对比</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>人类角色</th>
+<th>AI 角色</th>
+<th>接口形态</th>
+<th style="text-align: center;">是否 AI Native</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unity + ChatGPT</strong></td>
+<td>主力开发者</td>
+<td>辅助生成代码</td>
+<td>GUI + 对话（割裂）</td>
+<td style="text-align: center;">❌</td>
+</tr>
+<tr>
+<td><strong>Unity + Midjourney</strong></td>
+<td>主力开发者</td>
+<td>批量出图</td>
+<td>GUI + 外部工具</td>
+<td style="text-align: center;">❌</td>
+</tr>
+<tr>
+<td><strong>GameNGen</strong></td>
+<td>无（纯生成）</td>
+<td>替代整个引擎</td>
+<td>无开发接口</td>
+<td style="text-align: center;">❌</td>
+</tr>
+<tr>
+<td><strong>AI Native Engine（本方案）</strong></td>
+<td>决策者 + 协作者</td>
+<td>可编程服务层</td>
+<td><strong>统一协作界面</strong></td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<p>关键差异：<strong>不是"AI 替代引擎"，不是"AI 辅助引擎"，而是"AI 就是引擎的内置能力"</strong>。</p>
+<p>开发者调用 AI 模块，就像调用 Physics.Raycast() 一样自然：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 传统引擎调用</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">hit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Physics</span><span class="p">.</span><span class="n">Raycast</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span><span class="w"> </span><span class="n">direction</span><span class="p">,</span><span class="w"> </span><span class="k">out</span><span class="w"> </span><span class="n">hitInfo</span><span class="p">);</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">sprite</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Resources</span><span class="p">.</span><span class="n">Load</span><span class="o">&lt;</span><span class="n">Sprite</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;warrior.png&quot;</span><span class="p">);</span>
+
+<span class="c1">// AI Native 引擎调用 — 同样的调用范式，不同的能力来源</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">sprite</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">GenerateSprite</span><span class="p">(</span><span class="s">&quot;蓝披风女战士&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">style</span><span class="p">:</span><span class="w"> </span><span class="n">HD2D</span><span class="p">);</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">dialogue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">GenerateDialogue</span><span class="p">(</span><span class="n">npcId</span><span class="p">,</span><span class="w"> </span><span class="n">playerHistory</span><span class="p">,</span><span class="w"> </span><span class="n">worldState</span><span class="p">);</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">bgm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">ComposeBGM</span><span class="p">(</span><span class="n">mood</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;boss_battle&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">tempo</span><span class="p">:</span><span class="w"> </span><span class="mi">160</span><span class="p">);</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">scene</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">GenerateScene</span><span class="p">(</span><span class="s">&quot;被森林环绕的渔村&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">theme</span><span class="p">:</span><span class="w"> </span><span class="n">Nordic</span><span class="p">);</span>
+</code></pre></div>
+
+<hr />
+<h2 id="二、三层操控体系-the-steering-system">二、三层操控体系（The Steering System）</h2>
+<p>这是 AI Native 引擎区别于所有现存方案的核心创新。光有 V12 发动机不够，你需要方向盘。</p>
+<h3 id="2-1-第一层-意图表达粒度-the-gearbox">2.1 第一层：意图表达粒度（The Gearbox）</h3>
+<p>不同时刻，开发者需要不同的控制精度。引擎必须支持在这些粒度之间<strong>平滑切换</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>档位</th>
+<th>开发者表达</th>
+<th>AI 响应</th>
+<th>类比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 档 · 自动巡航</strong></td>
+<td>"做一个北欧渔村"</td>
+<td>生成完整场景 + NPC + 对话 + 音乐</td>
+<td>特斯拉 FSD</td>
+</tr>
+<tr>
+<td><strong>2 档 · 辅助驾驶</strong></td>
+<td>"渔村，但码头朝南，要有灯塔"</td>
+<td>在约束下生成，开发者逐步审核</td>
+<td>定速巡航 + 手动变道</td>
+</tr>
+<tr>
+<td><strong>3 档 · 手动微调</strong></td>
+<td>"长老的帽子颜色改成 #3A7EBA"</td>
+<td>只精确修改该属性</td>
+<td>手动挡</td>
+</tr>
+<tr>
+<td><strong>R 档 · 回退</strong></td>
+<td>"不喜欢，回到 5 分钟前的版本"</td>
+<td>撤销 AI 改动，保留人类修改</td>
+<td>倒车</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键设计</strong>：同一套 API 覆盖全粒度，不切换工具链。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 1 档</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">village</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">GenerateScene</span><span class="p">(</span><span class="s">&quot;北欧渔村&quot;</span><span class="p">);</span>
+
+<span class="c1">// 2 档</span>
+<span class="kt">var</span><span class="w"> </span><span class="n">village</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">GenerateScene</span><span class="p">(</span><span class="s">&quot;北欧渔村&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">constraints</span><span class="p">:</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">dockDirection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;south&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">mustHave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;lighthouse&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;fish_market&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">});</span>
+
+<span class="c1">// 3 档</span>
+<span class="n">village</span><span class="p">.</span><span class="n">GetNPC</span><span class="p">(</span><span class="s">&quot;elder&quot;</span><span class="p">).</span><span class="n">SetHatColor</span><span class="p">(</span><span class="s">&quot;#3A7EBA&quot;</span><span class="p">);</span>
+
+<span class="c1">// R 档</span>
+<span class="k">await</span><span class="w"> </span><span class="n">Engine</span><span class="p">.</span><span class="n">AI</span><span class="p">.</span><span class="n">Rollback</span><span class="p">(</span><span class="n">TimeSpan</span><span class="p">.</span><span class="n">FromMinutes</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
+</code></pre></div>
+
+<h3 id="2-2-第二层-可解释性与信任-the-dashboard">2.2 第二层：可解释性与信任（The Dashboard）</h3>
+<p>马车时代拉缰绳 → 马朝右走，因果关系是直观的。</p>
+<p>AI Native 引擎里，你说"生成一个渔村"，AI 生成了——但<strong>为什么是这个布局？为什么 NPC 选择了这条路线？</strong> 如果不解释，开发者丧失掌控感。</p>
+<p><strong>AI 决策追溯系统</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nl">开发者</span><span class="p">:</span><span class="w"> </span><span class="ss">&quot;为什么长老每天下午去墓地？我没有设这个行为&quot;</span>
+
+<span class="nl">引擎仪表盘输出</span><span class="p">:</span>
+<span class="err">┌──────────────────────────────────────────────────┐</span>
+<span class="err">│</span><span class="w"> </span><span class="nl">决策追溯</span><span class="p">:</span><span class="w"> </span><span class="n">NPC</span><span class="o">[</span><span class="n">elder_01</span><span class="o">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">当前行为</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">前往墓地</span><span class="w">     </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                   </span><span class="err">│</span>
+<span class="err">│</span><span class="w"> </span><span class="nl">触发链路</span><span class="p">:</span><span class="w">                                          </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">├─</span><span class="w"> </span><span class="o">[</span><span class="n">你设定的</span><span class="o">]</span><span class="w"> </span><span class="nl">schedule</span><span class="p">:</span><span class="w"> </span><span class="ss">&quot;正午后自由活动&quot;</span><span class="w">           </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">├─</span><span class="w"> </span><span class="o">[</span><span class="n">任务系统</span><span class="o">]</span><span class="w"> </span><span class="nl">world_state</span><span class="p">:</span><span class="w"> </span><span class="n">son_missing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">true</span><span class="w">     </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">└─</span><span class="w"> </span><span class="o">[</span><span class="n">LLM 推理</span><span class="o">]</span><span class="w"> </span><span class="ss">&quot;儿子失踪3天 → 父亲可能去墓地祈祷&quot;</span><span class="w">   </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                   </span><span class="err">│</span>
+<span class="err">│</span><span class="w"> </span><span class="nl">干预方式</span><span class="p">:</span><span class="w">                                          </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">&gt;</span><span class="w"> </span><span class="ss">&quot;让他在酒馆消愁&quot;</span><span class="w">      </span><span class="err">→</span><span class="w"> </span><span class="n">重写此行为</span><span class="w">               </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">&gt;</span><span class="w"> </span><span class="ss">&quot;关闭 son_missing&quot;</span><span class="w">    </span><span class="err">→</span><span class="w"> </span><span class="n">修改世界状态</span><span class="w">             </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">&gt;</span><span class="w"> </span><span class="ss">&quot;禁用此 NPC 的 LLM&quot;</span><span class="w">   </span><span class="err">→</span><span class="w"> </span><span class="n">降级为预设行为</span><span class="w">            </span><span class="err">│</span>
+<span class="err">└──────────────────────────────────────────────────┘</span>
+</code></pre></div>
+
+<h3 id="2-3-第三层-开发者界面-the-cockpit">2.3 第三层：开发者界面（The Cockpit）</h3>
+<p>传统引擎的界面 = GUI 面板。AI Native 引擎的界面 = <strong>代码 + 实时预览 + AI 对话面板</strong>。</p>
+<div class="codehilite"><pre><span></span><code><span class="err">┌─────────────────────────────────────────────────┐</span>
+<span class="err">│</span><span class="w">  </span><span class="n">代码编辑器</span><span class="err">（</span><span class="n">AI</span><span class="w"> </span><span class="n">主要工作区</span><span class="err">，</span><span class="n">人类审核和修改</span><span class="err">）</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">//</span><span class="w"> </span><span class="n">village</span><span class="p">.</span><span class="n">ron</span><span class="w"> </span><span class="p">(</span><span class="n">引擎的场景描述格式</span><span class="p">)</span><span class="w">               </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="n">scene</span><span class="w"> </span><span class="ss">&quot;fishing_village&quot;</span><span class="w"> </span><span class="err">{</span><span class="w">                       </span><span class="err">│</span>
+<span class="err">│</span><span class="w">    </span><span class="nl">layout</span><span class="p">:</span><span class="w"> </span><span class="nv">@generate</span><span class="p">(</span><span class="ss">&quot;北欧渔村，码头朝南&quot;</span><span class="p">)</span><span class="w">         </span><span class="err">│</span>
+<span class="err">│</span><span class="w">    </span><span class="n">npc</span><span class="w"> </span><span class="ss">&quot;elder&quot;</span><span class="w"> </span><span class="err">{</span><span class="w">                                 </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="nl">sprite</span><span class="p">:</span><span class="w"> </span><span class="nv">@generate</span><span class="p">(</span><span class="ss">&quot;年迈渔村长老，HD-2D&quot;</span><span class="p">)</span><span class="w">     </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="nl">schedule</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="n">                                 │</span>
+<span class="n">│        &quot;06:00 码头钓鱼&quot;,                          │</span>
+<span class="n">│        &quot;12:00 广场闲逛&quot;,                          │</span>
+<span class="n">│        &quot;18:00 回家&quot;                               │</span>
+<span class="n">│      </span><span class="o">]</span><span class="w">                                           </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="nl">dialogue</span><span class="p">:</span><span class="w"> </span><span class="nv">@dynamic</span><span class="p">(</span><span class="w">                         </span><span class="err">│</span>
+<span class="err">│</span><span class="w">        </span><span class="nl">context</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="n">&quot;儿子失踪&quot;, &quot;玩家已帮过忙&quot;</span><span class="o">]</span><span class="w">       </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="p">)</span><span class="w">                                           </span><span class="err">│</span>
+<span class="err">│</span><span class="w">    </span><span class="err">}</span><span class="w">                                             </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">}</span><span class="w">                                               </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                  </span><span class="err">│</span>
+<span class="err">├─────────────────────────────────────────────────┤</span>
+<span class="err">│</span><span class="w">  </span><span class="n">实时预览</span><span class="err">（</span><span class="n">每次</span><span class="w"> </span><span class="n">Cmd</span><span class="o">+</span><span class="n">S</span><span class="w"> </span><span class="n">秒级刷新</span><span class="err">）</span><span class="w">                   </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">┌──────────────────────────────────────┐</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="o">[</span><span class="n">HD-2D 微缩景观实时渲染</span><span class="o">]</span><span class="w">              </span><span class="err">│</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="n">长老正在码头钓鱼</span><span class="err">，</span><span class="n">朝向东南</span><span class="w">              </span><span class="err">│</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="n">点击任意</span><span class="w"> </span><span class="n">NPC</span><span class="w"> </span><span class="n">查看</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="n">状态</span><span class="o">/</span><span class="n">决策链</span><span class="w">       </span><span class="err">│</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="err">└──────────────────────────────────────┘</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                  </span><span class="err">│</span>
+<span class="err">├─────────────────────────────────────────────────┤</span>
+<span class="err">│</span><span class="w">  </span><span class="n">AI</span><span class="w"> </span><span class="n">对话面板</span><span class="err">（</span><span class="n">自然语言操控入口</span><span class="err">）</span><span class="w">                    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">&gt;</span><span class="w"> </span><span class="n">让长老显得更疲惫一些</span><span class="w">                            </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="nl">AI</span><span class="p">:</span><span class="w"> </span><span class="n">已调整</span><span class="w"> </span><span class="n">sprite</span><span class="err">（</span><span class="n">黑眼圈</span><span class="o">+</span><span class="n">驼背</span><span class="o">+</span><span class="n">缓慢动画</span><span class="err">）</span><span class="w">          </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="n">预览中</span><span class="p">...</span><span class="w"> </span><span class="o">[</span><span class="n">accept</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">reject</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">再老10岁</span><span class="o">]</span><span class="w">        </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                                  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="o">&gt;</span><span class="w"> </span><span class="n">把整个渔村的色调从暖色改成冷色</span><span class="w">                    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">  </span><span class="nl">AI</span><span class="p">:</span><span class="w"> </span><span class="n">已调整场景色调映射</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">光照参数</span><span class="w">                  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">      </span><span class="n">预览中</span><span class="p">...</span><span class="w"> </span><span class="o">[</span><span class="n">accept</span><span class="o">]</span><span class="w"> </span><span class="o">[</span><span class="n">reject</span><span class="o">]</span><span class="w">                  </span><span class="err">│</span>
+<span class="err">└─────────────────────────────────────────────────┘</span>
+</code></pre></div>
+
+<hr />
+<h2 id="三、系统架构">三、系统架构</h2>
+<h3 id="3-1-整体分层">3.1 整体分层</h3>
+<div class="codehilite"><pre><span></span><code>┌──────────────────────────────────────────────────────┐
+│                    开发者驾驶舱                        │
+│  代码编辑器  │  实时预览  │  AI 对话  │  决策追溯       │
+└────────────────────────┬─────────────────────────────┘
+                         │ 统一协作接口
+┌────────────────────────▼─────────────────────────────┐
+│                   AI Native 引擎核心                   │
+│                                                      │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐  │
+│  │ 确定性游戏核心 │ │  AI 服务层    │ │  混合渲染器   │  │
+│  │ (Rust/C++)   │ │  (Python SDK) │ │  (bgfx/WGPU) │  │
+│  │              │ │              │ │              │  │
+│  │ · ECS        │ │ · LLM(narr)  │ │ · 3D 场景    │  │
+│  │ · 战斗状态机  │ │ · Diffusion  │ │ · 2D 精灵    │  │
+│  │ · 物理/碰撞   │ │ · WorldModel │ │ · 后处理     │  │
+│  │ · 存档/网络   │ │ · Audio AI   │ │ · UI 层      │  │
+│  └──────────────┘ └──────────────┘ └──────────────┘  │
+│                                                      │
+│  ┌──────────────────────────────────────────────┐    │
+│  │            操控系统（Steering System）         │    │
+│  │  ┌─────────┐ ┌──────────┐ ┌──────────────┐  │    │
+│  │  │ 粒度控制 │ │ 决策追溯  │ │ Diff + 回退   │  │    │
+│  │  │ 1-3+R 档│ │ 因果链路  │ │ 版本管理      │  │    │
+│  │  └─────────┘ └──────────┘ └──────────────┘  │    │
+│  └──────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────┘
+</code></pre></div>
+
+<h3 id="3-2-模块详解">3.2 模块详解</h3>
+<h4 id="确定性游戏核心-rust">确定性游戏核心（Rust）</h4>
+<p>职责与普通引擎一致——提供可靠的物理、碰撞、状态管理。<strong>不能交给 AI 的部分。</strong></p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ECS</td>
+<td>实体-组件-系统，所有 AI 生成的内容最终挂载到这里</td>
+</tr>
+<tr>
+<td>战斗状态机</td>
+<td>回合制 B-Tree，100% 确定性</td>
+</tr>
+<tr>
+<td>场景图</td>
+<td>管理实体层级、变换、可见性</td>
+</tr>
+<tr>
+<td>存档系统</td>
+<td>快照 + 增量，包含 AI 生成状态的可复现性</td>
+</tr>
+<tr>
+<td>网络层</td>
+<td>可与 Ares 复用，多人联机支持</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ai-服务层-python-gpu">AI 服务层（Python + GPU）</h4>
+<p><strong>引擎的内置 AI 能力</strong>，通过统一 API 暴露给开发者。每个模块都是可替换的插件。</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>核心能力</th>
+<th>技术选型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LLM 叙事引擎</strong></td>
+<td>NPC 对话生成、任务生成、世界状态响应</td>
+<td>llama.cpp + GGUF 7B-13B</td>
+</tr>
+<tr>
+<td><strong>扩散精灵生成器</strong></td>
+<td>角色/NPC/怪物像素精灵 + 帧动画</td>
+<td>SDXL + HD-2D LoRA</td>
+</tr>
+<tr>
+<td><strong>世界模型</strong></td>
+<td>地图布局 + 纹理 + 光照设计</td>
+<td>LLM 规划 + ControlNet</td>
+</tr>
+<tr>
+<td><strong>AI 音频</strong></td>
+<td>BGM 作曲、环境音、音效生成</td>
+<td>MusicGen / Stable Audio</td>
+</tr>
+<tr>
+<td><strong>代码生成</strong></td>
+<td>脚本、Shader、配置文件</td>
+<td>DeepSeek / Claude API</td>
+</tr>
+</tbody>
+</table>
+<p>所有 AI 模块通过 <strong>统一服务接口</strong> 暴露：</p>
+<div class="codehilite"><pre><span></span><code>Engine.AI.Generate{What}({Intent}, {Constraints}) → {Artifact}
+</code></pre></div>
+
+<h4 id="混合渲染器">混合渲染器</h4>
+<p>不动摇的部分——渲染管线保持传统，保证 60FPS 和跨平台兼容。</p>
+<p>HD-2D 的四层合成：
+1. 3D 场景层（PBR + 微缩景深）
+2. 2D 精灵层（像素精灵 + 帧动画）
+3. 后处理层（Bloom / Vignette / 色调映射）
+4. UI 层（菜单 / 对话框）</p>
+<h4 id="操控系统-the-steering-system">操控系统（The Steering System）</h4>
+<p>这不是一个"模块"，而是贯穿引擎的<strong>横切关注点</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>粒度控制</strong></td>
+<td>管理 AI 生成从"全自动"到"像素级微调"的切换</td>
+</tr>
+<tr>
+<td><strong>决策追溯</strong></td>
+<td>记录每次 AI 调用的输入、输出、推理链路，支持回溯</td>
+</tr>
+<tr>
+<td><strong>Diff 引擎</strong></td>
+<td>对比 AI 修改前后，可视化变更</td>
+</tr>
+<tr>
+<td><strong>回退管理</strong></td>
+<td>撤销 AI 改动，保留人类手动修改</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四、mvp-最小的可行第一步">四、MVP：最小的可行第一步</h2>
+<p>不需要一上来就做全套。MVP 验证的是<strong>最核心的假设</strong>：</p>
+<blockquote>
+<p>AI 能否通过代码 + 自然语言高效地驱动一个游戏引擎？</p>
+</blockquote>
+<h3 id="4-1-mvp-范围">4.1 MVP 范围</h3>
+<div class="codehilite"><pre><span></span><code><span class="err">┌─────────────────────────────────────┐</span>
+<span class="err">│</span><span class="w">          </span><span class="n">MVP</span><span class="p">:</span><span class="w"> </span><span class="err">三角验证</span><span class="w">               </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                     </span><span class="err">│</span>
+<span class="err">│</span><span class="w">   </span><span class="err">代码运行时</span><span class="w"> </span><span class="err">◄──────────────────┐</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">   </span><span class="p">(</span><span class="n">Rust</span><span class="p">,</span><span class="w"> </span><span class="err">无</span><span class="w"> </span><span class="n">GUI</span><span class="p">,</span><span class="w"> </span><span class="err">纯</span><span class="w"> </span><span class="n">API</span><span class="p">)</span><span class="w">       </span><span class="err">│</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">       </span><span class="err">│</span><span class="w">                         </span><span class="err">│</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">       </span><span class="err">│</span><span class="w"> </span><span class="err">生成场景</span><span class="w">                 </span><span class="err">│</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">       </span><span class="err">▼</span><span class="w">                         </span><span class="err">│</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">   </span><span class="err">实时预览</span><span class="w"> </span><span class="err">◄──</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="err">对话面板</span><span class="w"> </span><span class="err">──────┘</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">   </span><span class="p">(</span><span class="n">Hot</span><span class="w"> </span><span class="n">Reload</span><span class="p">)</span><span class="w">   </span><span class="p">(</span><span class="err">自然语言→场景修改</span><span class="p">)</span><span class="w">  </span><span class="err">│</span>
+<span class="err">│</span><span class="w">                                     </span><span class="err">│</span>
+<span class="err">└─────────────────────────────────────┘</span>
+</code></pre></div>
+
+<h3 id="4-2-mvp-具体交付">4.2 MVP 具体交付</h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>内容</th>
+<th>时间</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>项目脚手架</strong></td>
+<td><code>ai-engine new my-game</code> 创建项目模板</td>
+<td>第 1 周</td>
+</tr>
+<tr>
+<td><strong>基础运行时</strong></td>
+<td>Rust ECS + bgfx 渲染，加载 RON 场景描述</td>
+<td>第 2-3 周</td>
+</tr>
+<tr>
+<td><strong>实时预览</strong></td>
+<td>文件变更 → 秒级热重载 → 窗口显示</td>
+<td>第 4 周</td>
+</tr>
+<tr>
+<td><strong>AI 对话面板</strong></td>
+<td>侧边栏 + 自然语言输入 → 修改场景描述文件</td>
+<td>第 5-6 周</td>
+</tr>
+<tr>
+<td><strong>验证 Demo</strong></td>
+<td>让 AI 通过对话生成一个可交互的 HD-2D 渔村</td>
+<td>第 7-8 周</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-3-mvp-成功标准">4.3 MVP 成功标准</h3>
+<ul>
+<li>[ ] 开发者（人或 AI）可以通过<strong>纯文本</strong>描述创建一个可渲染的场景</li>
+<li>[ ] 修改文本 → 2 秒内预览更新</li>
+<li>[ ] AI 对话面板能正确修改场景描述文件并触发重新渲染</li>
+<li>[ ] 整个流程不涉及任何 GUI 操作</li>
+</ul>
+<hr />
+<h2 id="五、后续路线图">五、后续路线图</h2>
+<h3 id="phase-2-ai-服务层-3-4-月">Phase 2：AI 服务层（3-4 月）</h3>
+<ul>
+<li>集成 LLM 叙事引擎（llama.cpp 嵌入 Rust）</li>
+<li>集成 SDXL 精灵生成器</li>
+<li>AI 对话题 → 自动生成 NPC 对话内容</li>
+<li>「R 档」回退系统</li>
+</ul>
+<h3 id="phase-3-操控系统-2-3-月">Phase 3：操控系统（2-3 月）</h3>
+<ul>
+<li>粒度控制系统（1-3+R 档）</li>
+<li>决策追溯面板</li>
+<li>Diff 可视化</li>
+<li>人类修改保护（AI 不能覆盖人工精修）</li>
+</ul>
+<h3 id="phase-4-生产就绪-3-4-月">Phase 4：生产就绪（3-4 月）</h3>
+<ul>
+<li>完整游戏系统（战斗 / 任务 / 物品）</li>
+<li>AI 音频生成集成</li>
+<li>跨平台打包（PC / Switch / Mobile）</li>
+<li>性能优化</li>
+</ul>
+<hr />
+<h2 id="六、关键风险">六、关键风险</h2>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>影响</th>
+<th>缓解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLM 推理延迟（200-500ms）</td>
+<td>实时场景生成不可用</td>
+<td>异步预生成 + 热缓存</td>
+</tr>
+<tr>
+<td>SDXL 像素一致性差</td>
+<td>精灵风格不统一</td>
+<td>专用 HD-2D LoRA + 后处理降色</td>
+</tr>
+<tr>
+<td>开发者不信任 AI 决策</td>
+<td>操控体系失效</td>
+<td>完整可解释性 + 步步可撤销</td>
+</tr>
+<tr>
+<td>AI 生成内容版权风险</td>
+<td>法律问题</td>
+<td>训练数据合规审查 + 水印溯源</td>
+</tr>
+<tr>
+<td>跨平台渲染兼容性</td>
+<td>Switch/移动端跑不动</td>
+<td>bgfx 后端切换 + LOD 降级</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="七、与纯神经引擎的本质区别">七、与纯神经引擎的本质区别</h2>
+<p>这个澄清很重要——避免误解为"又一个 GameNGen"：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>GameNGen / Oasis</th>
+<th>AI Native Engine（本方案）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>目标</strong></td>
+<td>AI 替代整个游戏引擎</td>
+<td>AI 成为引擎的可编程服务</td>
+</tr>
+<tr>
+<td><strong>人类角色</strong></td>
+<td>无（纯 AI 生成）</td>
+<td>开发者 + 决策者</td>
+</tr>
+<tr>
+<td><strong>控制方式</strong></td>
+<td>仅动作输入（按键）</td>
+<td>自然语言 + 代码 + 约束</td>
+</tr>
+<tr>
+<td><strong>可解释性</strong></td>
+<td>无（黑箱）</td>
+<td>完整决策追溯</td>
+</tr>
+<tr>
+<td><strong>内容生产</strong></td>
+<td>逐帧生成</td>
+<td>API 调用 + 离线批量</td>
+</tr>
+<tr>
+<td><strong>目标用户</strong></td>
+<td>玩家</td>
+<td><strong>游戏开发者</strong></td>
+</tr>
+<tr>
+<td><strong>类比</strong></td>
+<td>自动驾驶（无方向盘）</td>
+<td>智能汽车（有方向盘 + 辅助驾驶）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="八、总结">八、总结</h2>
+<p><strong>AI Native 引擎不是"用 AI 做游戏"，而是"让 AI 成为游戏编程的一等公民"。</strong></p>
+<p>就像汽车不是"会自己跑的马"，而是人类通过方向盘、油门、仪表盘与发动机协作的新范式——AI Native 引擎是人类开发者通过自然语言、约束、代码与 AI 模块协作的新平台。</p>
+<p>服务对象不变：游戏开发者。变的是工具形态和控制方式——从鼠标点击 GUI 到<strong>统一协作界面</strong>（代码 + 对话 + 预览 + 追溯）。</p>
+<hr />
+<p><em>修订日期：2026年5月28日</em>
+<em>关联项目：<a href="https://github.com/1441302031/ares-framework">Ares Framework</a></em></p>
+</main>
+</body>
+</html>

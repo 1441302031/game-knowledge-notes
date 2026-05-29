@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · 牙隐裂跨模态_补充章节</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#牙隐裂跨模态智能筛查系统-补充章节">牙隐裂跨模态智能筛查系统 —— 补充章节</a></li>
+<li style="margin-left:12px"><a href="#六、研究团队组成与分工">六、研究团队组成与分工</a></li>
+<li style="margin-left:12px"><a href="#七、研究周期与里程碑计划">七、研究周期与里程碑计划</a></li>
+<li style="margin-left:12px"><a href="#八、经费预算">八、经费预算</a></li>
+<li style="margin-left:12px"><a href="#九、纳入-排除标准与样本量依据">九、纳入/排除标准与样本量依据</a></li>
+<li style="margin-left:12px"><a href="#十、参考文献-建议列表">十、参考文献（建议列表）</a></li>
+<li style="margin-left:12px"><a href="#附-建议修订单">附：建议修订单</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="牙隐裂跨模态智能筛查系统-补充章节">牙隐裂跨模态智能筛查系统 —— 补充章节</h1>
+<blockquote>
+<p>本文为「基于跨模态知识蒸馏的口内照片牙隐裂智能筛查系统的研发」申报书的补充内容，包含：团队组成、研究周期、经费预算、纳排标准与样本量依据、参考文献。</p>
+</blockquote>
+<hr />
+<h2 id="六、研究团队组成与分工">六、研究团队组成与分工</h2>
+<h3 id="6-1-团队总体架构">6.1 团队总体架构</h3>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>人数</th>
+<th>专业背景要求</th>
+<th>核心职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>项目负责人（PI）</td>
+<td>1</td>
+<td>牙体牙髓病学，副主任医师及以上</td>
+<td>项目总体设计、临床方案制定、质量监督、成果产出</td>
+</tr>
+<tr>
+<td>临床标注组</td>
+<td>3</td>
+<td>牙体牙髓科主治医师及以上</td>
+<td>显微图像像素级标注、金标准仲裁、临床验证评估</td>
+</tr>
+<tr>
+<td>算法研发组</td>
+<td>3-4</td>
+<td>计算机视觉/医学图像处理，副教授 + 硕/博研究生</td>
+<td>教师模型研发、跨模态蒸馏算法、模型优化</td>
+</tr>
+<tr>
+<td>工程开发组</td>
+<td>1-2</td>
+<td>移动端开发/软件工程</td>
+<td>模型剪枝量化、移动端SDK封装、筛查APP开发</td>
+</tr>
+<tr>
+<td>统计学顾问</td>
+<td>1</td>
+<td>医学统计学/流行病学</td>
+<td>样本量计算、诊断效能评价（ROC/Dice/ICC）、多中心一致性分析</td>
+</tr>
+</tbody>
+</table>
+<h3 id="6-2-各角色详细分工">6.2 各角色详细分工</h3>
+<p><strong>项目负责人（PI）</strong>：
+- 统筹项目进度，制定《牙隐裂口内照片标准化拍摄规范》
+- 负责伦理审批（IRB）申报与知情同意书设计
+- 协调多中心合作医院，组织前瞻性验证
+- 主导论文撰写与成果申报</p>
+<p><strong>临床标注组（3人）</strong>：
+- 标注员A/B：独立对显微图像进行像素级裂纹标注（使用LabelMe或ITK-SNAP）
+- 仲裁专家（高年资主任医师）：对标注分歧进行最终裁定
+- 共同参与人机对比研究中的"医生读片"环节</p>
+<p><strong>算法研发组（3-4人）</strong>：
+- <strong>教师模型</strong>（1人）：基于DeepLabv3+/Swin-UNet在显微图像上训练高精度分割模型
+- <strong>跨模态蒸馏</strong>（1-2人）：设计输出层+特征层+注意力层多层级蒸馏损失，引入对比学习预对齐
+- <strong>弱监督定位</strong>（1人）：研发Grad-CAM++/Score-CAM驱动的弱监督热力图生成与抗干扰模块</p>
+<p><strong>工程开发组（1-2人）</strong>：
+- 模型压缩：结构化剪枝 + INT8量化，目标模型体积 &lt; 30MB
+- 移动端部署：封装为Android/iOS SDK（ONNX Runtime / TensorFlow Lite），开发轻量级筛查APP
+- 实时性优化：单张推理 &lt; 500ms（移动端CPU）</p>
+<p><strong>统计学顾问（1人）</strong>：
+- 样本量计算（基于效应量、α=0.05、power=0.80）
+- 诊断效能指标计算（敏感度、特异度、PPV、NPV、AUC）
+- 标注一致性评估（Cohen's κ / ICC）
+- 人机对比研究中的配对检验设计</p>
+<h3 id="6-3-合作单位建议">6.3 合作单位建议</h3>
+<table>
+<thead>
+<tr>
+<th>单位类型</th>
+<th>合作内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本院牙体牙髓科</td>
+<td>数据采集、标注、临床验证（主中心）</td>
+</tr>
+<tr>
+<td>2-3家合作医院（地市级）</td>
+<td>外部验证集采集、基层适用性评估</td>
+</tr>
+<tr>
+<td>计算机学院/人工智能学院</td>
+<td>算法联合研发、研究生培养</td>
+</tr>
+<tr>
+<td>医学影像设备厂商（可选）</td>
+<td>显微镜设备支持、技术咨询</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="七、研究周期与里程碑计划">七、研究周期与里程碑计划</h2>
+<h3 id="7-1-总体周期">7.1 总体周期</h3>
+<p><strong>建议总周期：30个月</strong>（可调整为24个月紧凑版，见附注）</p>
+<h3 id="7-2-四阶段里程碑">7.2 四阶段里程碑</h3>
+<h4 id="第一阶段-基础建设期-第1-8月-数据与规范">第一阶段：基础建设期（第1-8月）—— 数据与规范</h4>
+<table>
+<thead>
+<tr>
+<th>时间节点</th>
+<th>里程碑</th>
+<th>交付物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第1-2月</td>
+<td>伦理审批通过</td>
+<td>IRB批准文件、知情同意书定稿</td>
+</tr>
+<tr>
+<td>第2-3月</td>
+<td>拍摄规范制定完成</td>
+<td>《牙隐裂口内照片标准化拍摄规范》V1.0</td>
+</tr>
+<tr>
+<td>第3-4月</td>
+<td>标注规范与流程建立</td>
+<td>标注手册（含典型案例图例）、LabelMe标注模板</td>
+</tr>
+<tr>
+<td>第4-8月</td>
+<td>配对数据集采集完成</td>
+<td>≥150例配对数据（显微镜 + 口内照），完成双人标注与仲裁</td>
+</tr>
+<tr>
+<td>第6-8月</td>
+<td>数据预处理管线搭建</td>
+<td>图像去识别、光照归一化、数据增强pipeline代码</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第一里程碑评审指标</strong>：配对数据 ≥150例，标注一致性 ICC ≥ 0.85</p>
+<h4 id="第二阶段-教师模型研发期-第6-14月-高精度分割">第二阶段：教师模型研发期（第6-14月）—— 高精度分割</h4>
+<table>
+<thead>
+<tr>
+<th>时间节点</th>
+<th>里程碑</th>
+<th>交付物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第6-9月</td>
+<td>显微图像分割baseline</td>
+<td>DeepLabv3+ 基线模型，报告初始Dice</td>
+</tr>
+<tr>
+<td>第9-11月</td>
+<td>模型迭代优化</td>
+<td>多架构对比（Swin-UNet / nnU-Net），数据增强策略</td>
+</tr>
+<tr>
+<td>第11-12月</td>
+<td>教师模型冻结</td>
+<td>Dice系数 ≥ 0.85（五折交叉验证）</td>
+</tr>
+<tr>
+<td>第12-14月</td>
+<td>教师模型特征提取验证</td>
+<td>中间层特征可视化，确保裂纹区域响应集中</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第二里程碑评审指标</strong>：教师模型 Dice ≥ 0.85，敏感度 ≥ 92%</p>
+<h4 id="第三阶段-跨模态蒸馏期-第12-22月-核心创新">第三阶段：跨模态蒸馏期（第12-22月）—— 核心创新</h4>
+<table>
+<thead>
+<tr>
+<th>时间节点</th>
+<th>里程碑</th>
+<th>交付物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第12-14月</td>
+<td>对比学习预对齐</td>
+<td>跨模态特征空间对齐（t-SNE可视化验证分布一致性）</td>
+</tr>
+<tr>
+<td>第14-16月</td>
+<td>单一蒸馏损失消融实验</td>
+<td>输出层蒸馏 → 特征层蒸馏 → 注意力蒸馏，逐层叠加的增益量化</td>
+</tr>
+<tr>
+<td>第16-18月</td>
+<td>多层级蒸馏 + 弱监督联合训练</td>
+<td>完整学生模型，初步 Dice</td>
+</tr>
+<tr>
+<td>第18-20月</td>
+<td>抗干扰模块集成与调优</td>
+<td>口内照片在反光/唾液干扰下的鲁棒性测试</td>
+</tr>
+<tr>
+<td>第20-22月</td>
+<td>学生模型冻结与消融实验定稿</td>
+<td>最终学生模型，Dice ≥ 0.75，敏感度 ≥ 90%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第三里程碑评审指标</strong>：学生模型 Dice ≥ 0.75，敏感度 ≥ 90%，推理速度 &lt; 500ms</p>
+<h4 id="第四阶段-验证与部署期-第20-30月-临床转化">第四阶段：验证与部署期（第20-30月）—— 临床转化</h4>
+<table>
+<thead>
+<tr>
+<th>时间节点</th>
+<th>里程碑</th>
+<th>交付物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第20-24月</td>
+<td>前瞻性多中心验证</td>
+<td>主中心 + 2-3家外部中心，≥100例前瞻性病例</td>
+</tr>
+<tr>
+<td>第22-24月</td>
+<td>人机对比研究</td>
+<td>AI vs 低年资 vs 高年资医生的ROC对比</td>
+</tr>
+<tr>
+<td>第24-26月</td>
+<td>模型剪枝与移动端部署</td>
+<td>轻量化模型（&lt;30MB），Android/iOS Demo APP</td>
+</tr>
+<tr>
+<td>第26-28月</td>
+<td>基层场景实地测试</td>
+<td>在2家基层医院进行真实场景筛查测试</td>
+</tr>
+<tr>
+<td>第28-30月</td>
+<td>数据分析、论文撰写与结题</td>
+<td>SCI论文2-3篇、专利/软著申请、结题报告</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第四里程碑评审指标</strong>：
+- 外部验证 Dice ≥ 0.70（不低于内部验证5个百分点以上）
+- AI辅助下低年资医生诊断准确率提升 &gt; 15%
+- 移动端实时筛查可用性 ≥ 95%（无崩溃/卡死）</p>
+<h3 id="7-3-甘特图概览">7.3 甘特图概览</h3>
+<div class="codehilite"><pre><span></span><code>              M1  M2  M3  M4  M5  M6  M7  M8  M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30
+伦理审批      ████████
+拍摄规范      ████████
+数据采集+标注 ████████████████████████████
+数据预处理        ████████████████
+教师模型研发            ████████████████████████████
+跨模态蒸馏                        ████████████████████████████████████
+抗干扰模块                                    ████████████████
+临床验证                                              ████████████████████
+人机对比                                                    ████████████
+移动端部署                                                    ████████████
+基层测试                                                                ████████████
+论文与结题                                                                        ██████████████
+</code></pre></div>
+
+<h3 id="7-4-紧凑版方案-24个月">7.4 紧凑版方案（24个月）</h3>
+<p>若基金周期要求24个月内完成，可将第一阶段压缩至第1-6月（提前启动伦理+数据采集双线并行），第二阶段压缩至第5-10月，第三阶段第9-18月（利用更多预训练权重加速），第四阶段第16-24月。</p>
+<hr />
+<h2 id="八、经费预算">八、经费预算</h2>
+<h3 id="8-1-预算总览">8.1 预算总览</h3>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th style="text-align: center;">金额（万元）</th>
+<th style="text-align: center;">占比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>设备费</td>
+<td style="text-align: center;">12-18</td>
+<td style="text-align: center;">15%</td>
+</tr>
+<tr>
+<td>材料费/数据采集费</td>
+<td style="text-align: center;">5-8</td>
+<td style="text-align: center;">7%</td>
+</tr>
+<tr>
+<td>人员费（劳务费）</td>
+<td style="text-align: center;">40-55</td>
+<td style="text-align: center;">45%</td>
+</tr>
+<tr>
+<td>临床验证费</td>
+<td style="text-align: center;">8-12</td>
+<td style="text-align: center;">10%</td>
+</tr>
+<tr>
+<td>差旅/会议/国际合作</td>
+<td style="text-align: center;">5-8</td>
+<td style="text-align: center;">7%</td>
+</tr>
+<tr>
+<td>出版/文献/知识产权</td>
+<td style="text-align: center;">4-6</td>
+<td style="text-align: center;">5%</td>
+</tr>
+<tr>
+<td>间接费用</td>
+<td style="text-align: center;">8-12</td>
+<td style="text-align: center;">11%</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td style="text-align: center;"><strong>82-119</strong></td>
+<td style="text-align: center;"><strong>100%</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="8-2-分项预算明细">8.2 分项预算明细</h3>
+<h4 id="设备费-12-18万">设备费（12-18万）</h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>规格</th>
+<th style="text-align: center;">数量</th>
+<th style="text-align: center;">单价（万）</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPU计算服务器</td>
+<td>RTX 4090 × 2 / A6000 × 1，128GB RAM</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8-12</td>
+<td style="text-align: center;">8-12</td>
+</tr>
+<tr>
+<td>移动端测试设备</td>
+<td>Android + iOS 各2台（覆盖高中低端）</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">0.4</td>
+<td style="text-align: center;">1.6</td>
+</tr>
+<tr>
+<td>外接存储（NAS）</td>
+<td>8TB，用于影像数据安全存储</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1.5</td>
+<td style="text-align: center;">1.5</td>
+</tr>
+<tr>
+<td>图像采集附件</td>
+<td>口内摄影辅助灯、比色板、标准背景板</td>
+<td style="text-align: center;">若干</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">1-3</td>
+</tr>
+</tbody>
+</table>
+<h4 id="材料费-数据采集费-5-8万">材料费/数据采集费（5-8万）</h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>说明</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>患者补贴</td>
+<td>参与研究的患者交通/误工补贴（≥150例）</td>
+<td style="text-align: center;">2-3</td>
+</tr>
+<tr>
+<td>标注耗材</td>
+<td>标注软件授权、高分辨率显示器</td>
+<td style="text-align: center;">1-2</td>
+</tr>
+<tr>
+<td>显微摄影耗材</td>
+<td>显微镜物镜保护套、无菌套件等</td>
+<td style="text-align: center;">1-2</td>
+</tr>
+<tr>
+<td>伦理审查费</td>
+<td>IRB审查、临床试验注册</td>
+<td style="text-align: center;">1</td>
+</tr>
+</tbody>
+</table>
+<h4 id="人员费-40-55万">人员费（40-55万）</h4>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>投入时间</th>
+<th style="text-align: center;">月均标准（元）</th>
+<th style="text-align: center;">总月数</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>算法博士后/科研助理</td>
+<td>全职</td>
+<td style="text-align: center;">10,000-15,000</td>
+<td style="text-align: center;">30</td>
+<td style="text-align: center;">30-45</td>
+</tr>
+<tr>
+<td>硕/博士研究生津贴</td>
+<td>3人</td>
+<td style="text-align: center;">2,000-3,000/人</td>
+<td style="text-align: center;">24</td>
+<td style="text-align: center;">14-22</td>
+</tr>
+<tr>
+<td>临床标注人员补贴</td>
+<td>3人</td>
+<td style="text-align: center;">按例计酬</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">5-8</td>
+</tr>
+<tr>
+<td>工程开发人员</td>
+<td>兼职</td>
+<td style="text-align: center;">5,000-8,000</td>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">8-12</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>注：以上为劳务费，不包含在职人员工资（由所在单位承担）。</p>
+</blockquote>
+<h4 id="临床验证费-8-12万">临床验证费（8-12万）</h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>说明</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>多中心协调费</td>
+<td>外部合作医院协调、数据采集培训</td>
+<td style="text-align: center;">3-4</td>
+</tr>
+<tr>
+<td>前瞻性验证数据</td>
+<td>外部验证集（≥100例）患者补贴与检查费</td>
+<td style="text-align: center;">3-5</td>
+</tr>
+<tr>
+<td>数据分析与统计咨询</td>
+<td>统计顾问劳务费</td>
+<td style="text-align: center;">2-3</td>
+</tr>
+</tbody>
+</table>
+<h4 id="差旅-会议-国际合作-5-8万">差旅/会议/国际合作（5-8万）</h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>说明</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>国际学术会议</td>
+<td>如 MICCAI / MIDL / IADR，2人次</td>
+<td style="text-align: center;">3-4</td>
+</tr>
+<tr>
+<td>国内学术会议</td>
+<td>中华口腔医学会年会等，3-5人次</td>
+<td style="text-align: center;">1-2</td>
+</tr>
+<tr>
+<td>合作单位走访</td>
+<td>多中心协调、实地调研</td>
+<td style="text-align: center;">1-2</td>
+</tr>
+</tbody>
+</table>
+<h4 id="出版-文献-知识产权-4-6万">出版/文献/知识产权（4-6万）</h4>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>说明</th>
+<th style="text-align: center;">小计（万）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCI论文版面费</td>
+<td>2-3篇开源期刊（APC约1.5-2万/篇）</td>
+<td style="text-align: center;">4-6</td>
+</tr>
+<tr>
+<td>专利申请费</td>
+<td>发明专利申请与维护（2项）</td>
+<td style="text-align: center;">1-2</td>
+</tr>
+<tr>
+<td>软件著作权登记</td>
+<td>筛查APP软件著作权</td>
+<td style="text-align: center;">0.2-0.5</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="九、纳入-排除标准与样本量依据">九、纳入/排除标准与样本量依据</h2>
+<h3 id="9-1-牙隐裂诊断标准">9.1 牙隐裂诊断标准</h3>
+<p>参考美国牙髓病学会（AAE）《 cracked teeth and vertical root fractures 》指南及 Ellis 分类：</p>
+<p><strong>临床诊断依据</strong>（满足 ≥2 条）：
+1. 咬合痛/咀嚼痛（尤其是咬硬物或特定方向）
+2. 冷刺激敏感/疼痛（不可复性）
+3. 透照法显示裂纹线（光纤透照下可见纵向/斜向透光中断线）
+4. 亚甲蓝染色后显微镜下可见染料渗入裂纹
+5. 牙髓电活力测试异常
+6. 排除其他病因（龋病、牙周病、牙髓炎无裂纹型、牙折）</p>
+<h3 id="9-2-牙隐裂分裂">9.2 牙隐裂分裂</h3>
+<p>参照 <strong>Ellis 分类（改良版）</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>分级</th>
+<th>描述</th>
+<th>纳入本研究的理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ⅰ级</td>
+<td>裂纹局限于釉质层，无症状或轻微敏感</td>
+<td>✅ 纳入（早期筛查最有价值）</td>
+</tr>
+<tr>
+<td>Ⅱ级</td>
+<td>裂纹累及牙本质浅层，可复性牙髓炎</td>
+<td>✅ 纳入</td>
+</tr>
+<tr>
+<td>Ⅲ级</td>
+<td>裂纹累及牙本质深层，不可复性牙髓炎</td>
+<td>✅ 纳入</td>
+</tr>
+<tr>
+<td>Ⅳ级</td>
+<td>裂纹延伸至髓腔/髓底</td>
+<td>✅ 纳入</td>
+</tr>
+<tr>
+<td>Ⅴ级</td>
+<td>牙齿完全纵裂（裂至根分叉以下）</td>
+<td>❌ 排除（直接拔除，无需AI筛查）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="9-3-图像纳入标准">9.3 图像纳入标准</h3>
+<p><strong>显微图像</strong>：
+- 放大倍率 ≥ 10×（10-40×均可）
+- 拍摄范围完整覆盖裂纹区域及周围 ≥ 3mm正常牙体组织
+- 焦点清晰，裂纹主体无运动模糊
+- 使用亚甲蓝染色后拍摄（辅助裂纹可视化）</p>
+<p><strong>口内照片</strong>：
+- 按照《标准化拍摄规范》拍摄（统一角度：90°正位 + 45°侧位，统一光源）
+- 分辨率 ≥ 1920×1080
+- 无反光遮挡裂纹区域（如有局部反光但裂纹区域可见，可纳入）
+- 无唾液池覆盖裂纹路径</p>
+<h3 id="9-4-排除标准">9.4 排除标准</h3>
+<p><strong>患者/牙齿层面</strong>：
+1. 全冠修复体覆盖裂纹区域（无法拍摄裂纹）
+2. 重度牙周病（松动度 ≥ Ⅱ度，影响拍摄）
+3. 广泛龋坏破坏牙冠形态（难以判断裂纹独立影响）
+4. 既往牙髓治疗（根管治疗/干髓术等影响影像判断）
+5. 根尖片/CBCT已明确提示根折/根裂
+6. 妊娠期/哺乳期女性（伦理保护）
+7. 未成年患者（需额外监护人同意，增加伦理复杂度，可在后续扩展研究中纳入）</p>
+<p><strong>图像层面</strong>：
+1. 对焦失败、运动模糊严重
+2. 口腔软组织（舌/颊/唇）遮挡裂纹区域 ≥ 50%
+3. 出血遮挡裂纹</p>
+<h3 id="9-5-金标准建立流程">9.5 金标准建立流程</h3>
+<div class="codehilite"><pre><span></span><code>患者就诊 → 临床检查初筛（符合诊断标准 ≥ 2条）
+         → 签署知情同意书
+         → 口内照片拍摄（标准化规范）
+         → 亚甲蓝染色
+         → 显微镜拍摄（10-40×）
+         → 标注员A独立标注（像素级）
+         → 标注员B独立标注（像素级）
+         → 计算标注一致性（ICC/Dice）
+         → 若ICC &lt; 0.80：仲裁专家介入，逐例讨论
+         → 仲裁后标注作为金标准
+</code></pre></div>
+
+<h3 id="9-6-样本量计算依据">9.6 样本量计算依据</h3>
+<h4 id="训练集-配对数据">训练集（配对数据）</h4>
+<p>基于医学影像分割研究的经验公式：</p>
+<blockquote>
+<p><strong>目标</strong>：Dice ≥ 0.75，效应量（effect size）= 0.15（预期学生模型与baseline之间的差异），α = 0.05，power = 0.80</p>
+</blockquote>
+<ul>
+<li>根据 nnU-Net 的经验（Isensee et al., 2021），医学图像分割在小样本下（n=50-100）即可在标注一致性高的数据集上达到稳定性能</li>
+<li>考虑 20% 数据剔除率（图像不合格、撤回知情同意等）</li>
+<li><strong>n ≥ 150 = 120（有效训练）/ 30（预留测试集）</strong></li>
+</ul>
+<p>训练/验证/测试划分：按患者级别 5 折交叉验证，外部分割出 30 例作为 hold-out 测试集。</p>
+<h4 id="前瞻性验证集">前瞻性验证集</h4>
+<p>基于诊断试验样本量公式：</p>
+<blockquote>
+<p><strong>目标</strong>：敏感度 ≥ 90%（预期敏感度 p = 0.90），允许误差 d = 6%，α = 0.05</p>
+</blockquote>
+<p>$$n = \frac{Z_{\alpha/2}^2 \cdot p(1-p)}{d^2} = \frac{1.96^2 \times 0.90 \times 0.10}{0.06^2} \approx 96$$</p>
+<p>向上取整，<strong>外部验证集 ≥ 100 例</strong>。</p>
+<h4 id="人机对比研究">人机对比研究</h4>
+<p>配对设计（同一患者分别由AI和不同年资医生评估）：</p>
+<blockquote>
+<p><strong>目标</strong>：AI辅助后低年资医生准确率提升 15%（δ = 15%，σ预估 = 20%），α = 0.05，power = 0.80</p>
+</blockquote>
+<p>$$n = \left( \frac{Z_{\alpha/2} + Z_{\beta}}{\delta / \sigma} \right)^2 = \left( \frac{1.96 + 0.84}{0.15 / 0.20} \right)^2 \approx 56$$</p>
+<p>每组招募 ≥ 60 例，分三组（低年资医生 / 低年资医生+AI辅助 / 高年资医生）。</p>
+<hr />
+<h2 id="十、参考文献-建议列表">十、参考文献（建议列表）</h2>
+<h3 id="10-1-牙隐裂临床与诊断">10.1 牙隐裂临床与诊断</h3>
+<ol>
+<li>
+<p><strong>Kahler W.</strong> The cracked tooth conundrum: terminology, classification, diagnosis, and management. <em>Australian Dental Journal</em>, 2021; 66(S1): S4-S14. DOI: 10.1111/adj.12857</p>
+</li>
+<li>
+<p><strong>American Association of Endodontists (AAE).</strong> <em>Colleagues for Excellence: Cracking the Cracked Tooth Code</em>. 2022.</p>
+</li>
+<li>
+<p><strong>Kang SH, Kim BS, Kim Y.</strong> Cracked teeth: distribution, characteristics, and survival after root canal treatment. <em>Journal of Endodontics</em>, 2023; 49(2): 120-127.</p>
+</li>
+<li>
+<p><strong>Seo DG, Yi YA, Shin SJ, Park JW.</strong> Analysis of factors associated with cracked teeth. <em>Journal of Endodontics</em>, 2022; 48(8): 975-983.</p>
+</li>
+<li>
+<p><strong>Longridge NN, Youngson CC.</strong> Dental operating microscope in endodontics: a literature review. <em>Journal of Dentistry</em>, 2023; 131: 104452.</p>
+</li>
+</ol>
+<h3 id="10-2-医学图像分割-教师模型基础">10.2 医学图像分割（教师模型基础）</h3>
+<ol>
+<li>
+<p><strong>Chen LC, Zhu Y, Papandreou G, et al.</strong> Encoder-decoder with atrous separable convolution for semantic image segmentation (DeepLabv3+). <em>ECCV</em>, 2018: 801-818. DOI: 10.1007/978-3-030-01234-2_49</p>
+</li>
+<li>
+<p><strong>Isensee F, Jaeger PF, Kohl SAA, et al.</strong> nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. <em>Nature Methods</em>, 2021; 18(2): 203-211. DOI: 10.1038/s41592-020-01008-z</p>
+</li>
+<li>
+<p><strong>Hatamizadeh A, Nath V, Tang Y, et al.</strong> Swin UNETR: Swin Transformers for Semantic Segmentation of Brain Tumors in MRI Images. <em>MICCAI BrainLes Workshop</em>, 2022. DOI: 10.1007/978-3-031-08999-2_22</p>
+</li>
+<li>
+<p><strong>Ronneberger O, Fischer P, Brox T.</strong> U-Net: Convolutional Networks for Biomedical Image Segmentation. <em>MICCAI</em>, 2015: 234-241. DOI: 10.1007/978-3-319-24574-4_28</p>
+</li>
+</ol>
+<h3 id="10-3-知识蒸馏与跨模态学习-核心算法基础">10.3 知识蒸馏与跨模态学习（核心算法基础）</h3>
+<ol>
+<li>
+<p><strong>Hinton G, Vinyals O, Dean J.</strong> Distilling the knowledge in a neural network. <em>NeurIPS Deep Learning Workshop</em>, 2015. arXiv: 1503.02531</p>
+</li>
+<li>
+<p><strong>Romero A, Ballas N, Kahou SE, et al.</strong> FitNets: Hints for thin deep nets. <em>ICLR</em>, 2015. arXiv: 1412.6550</p>
+</li>
+<li>
+<p><strong>Zagoruyko S, Komodakis N.</strong> Paying more attention to attention: improving the performance of convolutional neural networks via attention transfer. <em>ICLR</em>, 2017. arXiv: 1612.03928</p>
+</li>
+<li>
+<p><strong>Tian Y, Krishnan D, Isola P.</strong> Contrastive representation distillation. <em>ICLR</em>, 2020. arXiv: 1910.10699 （跨模态对比学习的理论框架）</p>
+</li>
+<li>
+<p><strong>Dou Q, Liu Q, Heng PA, Glocker B.</strong> Unpaired multi-modal segmentation via knowledge distillation. <em>IEEE TMI</em>, 2020; 39(7): 2415-2425. （跨模态医学分割蒸馏的典型范式）</p>
+</li>
+<li>
+<p><strong>Hu M, Maillard M, Zhang Y, et al.</strong> Knowledge distillation from multi-modal to mono-modal segmentation networks. <em>MICCAI</em>, 2020: 772-781. DOI: 10.1007/978-3-030-59710-8_75</p>
+</li>
+</ol>
+<h3 id="10-4-弱监督学习与可解释性">10.4 弱监督学习与可解释性</h3>
+<ol>
+<li>
+<p><strong>Selvaraju RR, Cogswell M, Das A, et al.</strong> Grad-CAM: Visual explanations from deep networks via gradient-based localization. <em>IJCV</em>, 2020; 128(2): 336-359. DOI: 10.1007/s11263-019-01228-7</p>
+</li>
+<li>
+<p><strong>Chattopadhyay A, Sarkar A, Howlader P, Balasubramanian VN.</strong> Grad-CAM++: Generalized gradient-based visual explanations for deep convolutional networks. <em>WACV</em>, 2018: 839-847.</p>
+</li>
+<li>
+<p><strong>Wang Y, Zhang J, Kan M, et al.</strong> Self-supervised equivariant attention mechanism for weakly supervised semantic segmentation. <em>CVPR</em>, 2020: 12275-12284.</p>
+</li>
+<li>
+<p><strong>Ahn J, Cho S, Kwak S.</strong> Weakly supervised learning of instance segmentation with inter-pixel relations. <em>CVPR</em>, 2019: 2209-2218.</p>
+</li>
+</ol>
+<h3 id="10-5-牙科ai应用">10.5 牙科AI应用</h3>
+<ol>
+<li>
+<p><strong>Schwendicke F, Samek W, Krois J.</strong> Artificial intelligence in dentistry: chances and challenges. <em>Journal of Dental Research</em>, 2020; 99(7): 769-774. DOI: 10.1177/0022034520915714</p>
+</li>
+<li>
+<p><strong>Lee JH, Kim DH, Jeong SN, Choi SH.</strong> Detection and diagnosis of dental caries using a deep learning-based convolutional neural network algorithm. <em>Journal of Dentistry</em>, 2018; 77: 106-111.</p>
+</li>
+<li>
+<p><strong>Cantu AG, Gehrung S, Krois J, et al.</strong> Detecting caries lesions of different radiographic extension on bitewings using deep learning. <em>Journal of Dentistry</em>, 2020; 100: 103425.</p>
+</li>
+<li>
+<p><strong>Fukuda M, Inamoto K, Shibata N, et al.</strong> Evaluation of an artificial intelligence system for detecting vertical root fracture on panoramic radiography. <em>Dentomaxillofacial Radiology</em>, 2020; 49(3): 20190346.</p>
+</li>
+</ol>
+<h3 id="10-6-移动端部署与模型压缩">10.6 移动端部署与模型压缩</h3>
+<ol>
+<li>
+<p><strong>Howard AG, Zhu M, Chen B, et al.</strong> MobileNets: Efficient convolutional neural networks for mobile vision applications. <em>arXiv</em>, 2017: 1704.04861.</p>
+</li>
+<li>
+<p><strong>Tan M, Le QV.</strong> EfficientNet: Rethinking model scaling for convolutional neural networks. <em>ICML</em>, 2019: 6105-6114.</p>
+</li>
+<li>
+<p><strong>Jacob B, Kligys S, Chen B, et al.</strong> Quantization and training of neural networks for efficient integer-arithmetic-only inference. <em>CVPR</em>, 2018: 2704-2713.</p>
+</li>
+</ol>
+<h3 id="10-7-统计学与试验设计">10.7 统计学与试验设计</h3>
+<ol>
+<li>
+<p><strong>Bossuyt PM, Reitsma JB, Bruns DE, et al.</strong> STARD 2015: an updated list of essential items for reporting diagnostic accuracy studies. <em>BMJ</em>, 2015; 351: h5527.</p>
+</li>
+<li>
+<p><strong>Landis JR, Koch GG.</strong> The measurement of observer agreement for categorical data. <em>Biometrics</em>, 1977; 33(1): 159-174.</p>
+</li>
+</ol>
+<hr />
+<h2 id="附-建议修订单">附：建议修订单</h2>
+<h3 id="对原文-p56-p64-难点的技术对策补充">对原文 P56-P64 难点的技术对策补充</h3>
+<table>
+<thead>
+<tr>
+<th>原文难点</th>
+<th>补充对策（可加入原文第六节）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P57-58</strong>: 跨模态特征对齐不稳定</td>
+<td>①在蒸馏前引入<strong>对比学习预对齐阶段</strong>（SimCLR-style，配对数据上训练跨模态编码器）；②使用<strong>循环一致性约束</strong>——口内照编码→显微空间→解码回口内照，与原始输入求重建损失</td>
+</tr>
+<tr>
+<td><strong>P59-60</strong>: 多任务损失权重调节</td>
+<td>采用 <strong>Kendall 不确定性加权</strong>（同方差不确定性自动学习各任务权重），或 <strong>GradNorm</strong> 动态平衡梯度量级</td>
+</tr>
+<tr>
+<td><strong>P61-62</strong>: 教师模型Dice上限</td>
+<td>①采用<strong>多尺度推理</strong>（0.5×/1×/1.5×）+ test-time augmentation；②使用<strong>弹性变形+随机擦除</strong>模拟裂纹形态做数据增强；③若DeepLabv3+不收敛，升级为 nnU-Net/Swin-UNet</td>
+</tr>
+<tr>
+<td><strong>P63-64</strong>: 弱监督热力图与蒸馏热力图冲突</td>
+<td>在联合训练中加入<strong>KL散度一致性正则化项</strong>，强制弱监督 Grad-CAM 分布与教师注意力分布对齐；或采用<strong>课程学习</strong>策略——前期纯蒸馏、后期逐渐加入弱监督信号</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<blockquote>
+<p>文档由 Hermes Agent 辅助生成，建议 PI 根据实际基金要求（如国自然面上/青年、省部级基金等）调整预算规模和研究周期。</p>
+</blockquote>
+</main>
+</body>
+</html>

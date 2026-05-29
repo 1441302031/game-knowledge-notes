@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Native Game Engine Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<div class="header">
+<div class="header-row"><div class="pulse-dot"></div><h1>AI Native 游戏引擎架构</h1></div>
+<p class="subtitle">人类 + AI 协作平台 — 代码驱动 · AI 服务层 · 操控系统 · 实时预览</p>
+</div>
+
+<div class="diagram-container">
+<svg viewBox="0 0 1050 820">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+<marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+<marker id="arrow-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#34d399"/></marker>
+<marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#a78bfa"/></marker>
+<marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fbbf24"/></marker>
+<marker id="arrow-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb7185"/></marker>
+<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+</defs>
+<rect width="100%" height="100%" fill="url(#grid)"/>
+
+<!-- ===== 第一层：开发者驾驶舱 ===== -->
+<rect x="30" y="30" width="990" height="100" rx="14" fill="rgba(34,211,238,.04)" stroke="#22d3ee" stroke-width="2" stroke-dasharray="10,5"/>
+<text x="50" y="55" fill="#22d3ee" font-size="13" font-weight="700">🧑‍💻 开发者驾驶舱 (Developer Cockpit)</text>
+<text x="260" y="55" fill="#475569" font-size="10">— 新的"方向盘"，替代传统引擎 GUI</text>
+
+<rect x="50" y="70" width="180" height="42" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="140" y="91" fill="white" font-size="11" font-weight="600" text-anchor="middle">📝 代码编辑器</text>
+<text x="140" y="105" fill="#67e8f9" font-size="8" text-anchor="middle">.ron 场景描述语言</text>
+
+<line x1="235" y1="91" x2="275" y2="91" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="280" y="70" width="180" height="42" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="370" y="91" fill="white" font-size="11" font-weight="600" text-anchor="middle">🖥 实时预览</text>
+<text x="370" y="105" fill="#67e8f9" font-size="8" text-anchor="middle">Hot Reload &lt;2s</text>
+
+<line x1="465" y1="91" x2="505" y2="91" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="510" y="70" width="180" height="42" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="600" y="91" fill="white" font-size="11" font-weight="600" text-anchor="middle">💬 AI 对话面板</text>
+<text x="600" y="105" fill="#67e8f9" font-size="8" text-anchor="middle">自然语言 → 场景修改</text>
+
+<line x1="695" y1="91" x2="735" y2="91" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="740" y="70" width="180" height="42" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="830" y="91" fill="white" font-size="11" font-weight="600" text-anchor="middle">🔍 决策追溯</text>
+<text x="830" y="105" fill="#67e8f9" font-size="8" text-anchor="middle">AI 为什么这样做？</text>
+
+<!-- 驾驶舱到引擎核心的箭头 -->
+<line x1="525" y1="130" x2="525" y2="155" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrow-cyan)"/>
+<text x="540" y="148" fill="#67e8f9" font-size="9">统一协作接口 (API)</text>
+
+<!-- ===== 第二层：引擎核心 ===== -->
+<rect x="30" y="160" width="990" height="280" rx="14" fill="rgba(15,23,42,.3)" stroke="#1e293b" stroke-width="1.5"/>
+
+<!-- 确定性游戏核心 -->
+<rect x="50" y="180" width="290" height="240" rx="10" fill="rgba(6,78,59,.06)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="8,4"/>
+<text x="65" y="200" fill="#34d399" font-size="11" font-weight="600">确定性游戏核心 (Rust)</text>
+<text x="65" y="214" fill="#6ee7b7" font-size="8">不能交给 AI 的部分</text>
+
+<rect x="65" y="225" width="260" height="32" rx="5" fill="rgba(6,78,59,.35)" stroke="#34d399" stroke-width="1"/>
+<text x="195" y="245" fill="white" font-size="10" font-weight="600" text-anchor="middle">⚔ 战斗状态机 · 任务系统 · ECS</text>
+
+<rect x="65" y="262" width="260" height="32" rx="5" fill="rgba(6,78,59,.35)" stroke="#34d399" stroke-width="1"/>
+<text x="195" y="282" fill="white" font-size="10" font-weight="600" text-anchor="middle">🏗 场景图 · 物理/碰撞 · 存档</text>
+
+<rect x="65" y="299" width="260" height="32" rx="5" fill="rgba(6,78,59,.35)" stroke="#34d399" stroke-width="1"/>
+<text x="195" y="319" fill="white" font-size="10" font-weight="600" text-anchor="middle">🌐 网络层 (Ares) · 脚本引擎 (Rhai)</text>
+
+<rect x="65" y="340" width="260" height="60" rx="5" fill="rgba(34,211,238,.06)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="195" y="358" fill="#67e8f9" font-size="9" text-anchor="middle">AI 可调用 API</text>
+<text x="195" y="374" fill="#67e8f9" font-size="8" text-anchor="middle">SpawnNPC / SetState / QueryWorld</text>
+<text x="195" y="390" fill="#67e8f9" font-size="8" text-anchor="middle">→ AI 通过代码读写游戏状态</text>
+
+<!-- AI 服务层 -->
+<rect x="370" y="180" width="290" height="240" rx="10" fill="rgba(8,51,68,.06)" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="8,4"/>
+<text x="385" y="200" fill="#22d3ee" font-size="11" font-weight="600">AI 服务层 (Python + GPU)</text>
+<text x="385" y="214" fill="#67e8f9" font-size="8">引擎的内置 AI 模块，像 Physics 一样调用</text>
+
+<rect x="385" y="225" width="125" height="60" rx="5" fill="rgba(8,51,68,.35)" stroke="#22d3ee" stroke-width="1"/>
+<text x="447" y="245" fill="white" font-size="10" font-weight="600" text-anchor="middle">🧠 LLM 叙事</text>
+<text x="447" y="260" fill="#67e8f9" font-size="8" text-anchor="middle">NPC 对话</text>
+<text x="447" y="275" fill="#67e8f9" font-size="8" text-anchor="middle">任务生成</text>
+
+<rect x="520" y="225" width="125" height="60" rx="5" fill="rgba(8,51,68,.35)" stroke="#22d3ee" stroke-width="1"/>
+<text x="582" y="245" fill="white" font-size="10" font-weight="600" text-anchor="middle">🎨 Diffusion</text>
+<text x="582" y="260" fill="#67e8f9" font-size="8" text-anchor="middle">精灵生成</text>
+<text x="582" y="275" fill="#67e8f9" font-size="8" text-anchor="middle">HD-2D LoRA</text>
+
+<rect x="385" y="295" width="125" height="60" rx="5" fill="rgba(8,51,68,.35)" stroke="#22d3ee" stroke-width="1"/>
+<text x="447" y="315" fill="white" font-size="10" font-weight="600" text-anchor="middle">🌍 WorldModel</text>
+<text x="447" y="330" fill="#67e8f9" font-size="8" text-anchor="middle">地图生成</text>
+<text x="447" y="345" fill="#67e8f9" font-size="8" text-anchor="middle">ControlNet</text>
+
+<rect x="520" y="295" width="125" height="60" rx="5" fill="rgba(8,51,68,.35)" stroke="#22d3ee" stroke-width="1"/>
+<text x="582" y="315" fill="white" font-size="10" font-weight="600" text-anchor="middle">🎵 Audio AI</text>
+<text x="582" y="330" fill="#67e8f9" font-size="8" text-anchor="middle">BGM 作曲</text>
+<text x="582" y="345" fill="#67e8f9" font-size="8" text-anchor="middle">音效生成</text>
+
+<rect x="385" y="365" width="260" height="35" rx="5" fill="rgba(251,191,36,.08)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="515" y="387" fill="#fcd34d" font-size="9" text-anchor="middle">⚡ 异步生成 · GPU 加速 · 热缓存</text>
+
+<!-- 混合渲染器 -->
+<rect x="690" y="180" width="310" height="240" rx="10" fill="rgba(76,29,149,.06)" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="8,4"/>
+<text x="705" y="200" fill="#a78bfa" font-size="11" font-weight="600">混合渲染器 (bgfx/WGPU)</text>
+<text x="705" y="214" fill="#c4b5fd" font-size="8">HD-2D 四层合成</text>
+
+<rect x="705" y="225" width="280" height="28" rx="4" fill="rgba(76,29,149,.3)" stroke="#a78bfa" stroke-width="1"/>
+<text x="845" y="243" fill="white" font-size="10" font-weight="600" text-anchor="middle">🎬 L1: 3D 场景渲染 (PBR · 微缩景深)</text>
+
+<rect x="705" y="258" width="280" height="28" rx="4" fill="rgba(76,29,149,.3)" stroke="#a78bfa" stroke-width="1"/>
+<text x="845" y="276" fill="white" font-size="10" font-weight="600" text-anchor="middle">👾 L2: 2D 精灵层 (像素精灵 · 帧动画)</text>
+
+<rect x="705" y="291" width="280" height="28" rx="4" fill="rgba(76,29,149,.3)" stroke="#a78bfa" stroke-width="1"/>
+<text x="845" y="309" fill="white" font-size="10" font-weight="600" text-anchor="middle">✨ L3: 后处理 (Bloom · Vignette · 调色)</text>
+
+<rect x="705" y="324" width="280" height="28" rx="4" fill="rgba(76,29,149,.3)" stroke="#a78bfa" stroke-width="1"/>
+<text x="845" y="342" fill="white" font-size="10" font-weight="600" text-anchor="middle">📐 L4: UI 层 (菜单 · 对话框 · HUD)</text>
+
+<rect x="705" y="365" width="280" height="38" rx="5" fill="rgba(34,211,238,.06)" stroke="#22d3ee" stroke-width="1"/>
+<text x="845" y="386" fill="#22d3ee" font-size="10" font-weight="600" text-anchor="middle">目标: HD-2D @ 60FPS · 跨平台</text>
+
+<!-- 核心间的数据流 -->
+<line x1="340" y1="300" x2="368" y2="300" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)" stroke-dasharray="5,3"/>
+<text x="354" y="293" fill="#67e8f9" font-size="7" text-anchor="middle">Game</text>
+<text x="354" y="310" fill="#67e8f9" font-size="7" text-anchor="middle">State</text>
+
+<line x1="660" y1="300" x2="688" y2="300" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)" stroke-dasharray="5,3"/>
+<text x="674" y="293" fill="#c4b5fd" font-size="7" text-anchor="middle">资产</text>
+<text x="674" y="310" fill="#c4b5fd" font-size="7" text-anchor="middle">交付</text>
+
+<!-- ===== 第三层：操控系统（横切） ===== -->
+<rect x="30" y="460" width="990" height="130" rx="14" fill="rgba(251,191,36,.04)" stroke="#fbbf24" stroke-width="2" stroke-dasharray="10,5"/>
+<text x="50" y="485" fill="#fbbf24" font-size="13" font-weight="700">🎛 操控系统 (Steering System)</text>
+<text x="260" y="485" fill="#475569" font-size="10">— 横切关注点，贯穿整个引擎，提供人类对 AI 的精细控制</text>
+
+<rect x="50" y="500" width="220" height="70" rx="8" fill="rgba(120,53,15,.25)" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="160" y="522" fill="white" font-size="11" font-weight="600" text-anchor="middle">🔀 粒度控制 (Gearbox)</text>
+<text x="160" y="540" fill="#fcd34d" font-size="8" text-anchor="middle">1 档·全自动 → 3 档·微调 → R 档·回退</text>
+<text x="160" y="558" fill="#fcd34d" font-size="8" text-anchor="middle">同一 API 覆盖全粒度</text>
+
+<rect x="290" y="500" width="220" height="70" rx="8" fill="rgba(120,53,15,.25)" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="400" y="522" fill="white" font-size="11" font-weight="600" text-anchor="middle">📊 决策追溯 (Dashboard)</text>
+<text x="400" y="540" fill="#fcd34d" font-size="8" text-anchor="middle">输入→推理→输出 完整链路</text>
+<text x="400" y="558" fill="#fcd34d" font-size="8" text-anchor="middle">"AI 为什么生成这个？"</text>
+
+<rect x="530" y="500" width="220" height="70" rx="8" fill="rgba(120,53,15,.25)" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="640" y="522" fill="white" font-size="11" font-weight="600" text-anchor="middle">🔍 Diff 引擎</text>
+<text x="640" y="540" fill="#fcd34d" font-size="8" text-anchor="middle">AI 修改前后对比可视化</text>
+<text x="640" y="558" fill="#fcd34d" font-size="8" text-anchor="middle">人类修改保护 (不可覆盖)</text>
+
+<rect x="770" y="500" width="220" height="70" rx="8" fill="rgba(120,53,15,.25)" stroke="#fbbf24" stroke-width="1.5"/>
+<text x="880" y="522" fill="white" font-size="11" font-weight="600" text-anchor="middle">⏪ 回退管理</text>
+<text x="880" y="540" fill="#fcd34d" font-size="8" text-anchor="middle">撤销 AI 改动·保留人类修改</text>
+<text x="880" y="558" fill="#fcd34d" font-size="8" text-anchor="middle">分支实验 (A/B 版本)</text>
+
+<!-- ===== 第四层：基础设施 ===== -->
+<rect x="30" y="610" width="990" height="90" rx="12" fill="rgba(30,41,59,.15)" stroke="#475569" stroke-width="1.5"/>
+<text x="50" y="635" fill="#64748b" font-size="10" font-weight="600">运行时基础设施</text>
+
+<rect x="50" y="648" width="140" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="120" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">🦀 Rust 引擎</text>
+
+<rect x="205" y="648" width="140" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="275" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">🎮 bgfx/WGPU</text>
+
+<rect x="360" y="648" width="140" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="430" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">🐍 Python SDK</text>
+
+<rect x="515" y="648" width="140" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="585" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">🧠 llama.cpp</text>
+
+<rect x="670" y="648" width="140" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="740" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">🎨 SDXL + LoRA</text>
+
+<rect x="825" y="648" width="175" height="36" rx="5" fill="rgba(30,41,59,.4)" stroke="#94a3b8" stroke-width="1"/>
+<text x="912" y="670" fill="white" font-size="10" font-weight="600" text-anchor="middle">💻 PC · Switch · Mobile</text>
+
+<!-- ===== 图例 ===== -->
+<text x="365" y="735" fill="#475569" font-size="10">图例:</text>
+<rect x="410" y="726" width="14" height="8" rx="2" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1"/>
+<text x="428" y="733" fill="#94a3b8" font-size="8">开发者界面</text>
+<rect x="520" y="726" width="14" height="8" rx="2" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1"/>
+<text x="538" y="733" fill="#94a3b8" font-size="8">确定性核心</text>
+<rect x="620" y="726" width="14" height="8" rx="2" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1"/>
+<text x="638" y="733" fill="#94a3b8" font-size="8">AI 服务</text>
+<rect x="700" y="726" width="14" height="8" rx="2" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1"/>
+<text x="718" y="733" fill="#94a3b8" font-size="8">渲染</text>
+<rect x="770" y="726" width="14" height="8" rx="2" fill="rgba(120,53,15,.3)" stroke="#fbbf24" stroke-width="1"/>
+<text x="788" y="733" fill="#94a3b8" font-size="8">操控系统</text>
+
+</svg>
+</div>
+
+<div class="cards">
+<div class="card">
+<div class="card-header"><div class="card-dot cyan"></div><h3>开发者驾驶舱</h3></div>
+<ul>
+<li>• 代码编辑器 — AI 主要工作区</li>
+<li>• 实时预览 — 保存即刷新 &lt;2s</li>
+<li>• AI 对话面板 — 自然语言操控</li>
+<li>• 决策追溯 — "AI 为什么这样做？"</li>
+</ul>
+</div>
+<div class="card">
+<div class="card-header"><div class="card-dot amber"></div><h3>操控系统 (核心创新)</h3></div>
+<ul>
+<li>• 粒度控制: 全自动→微调→回退</li>
+<li>• 决策链路: 输入→推理→输出可追溯</li>
+<li>• Diff 引擎: AI 修改前后对比</li>
+<li>• 人类修改保护: AI 不可覆盖</li>
+</ul>
+</div>
+<div class="card">
+<div class="card-header"><div class="card-dot emerald"></div><h3>与纯神经引擎区别</h3></div>
+<ul>
+<li>• 服务对象: 开发者 ≠ 玩家</li>
+<li>• 控制方式: 代码+语言 ≠ 按键</li>
+<li>• 可解释性: 完整追溯 ≠ 黑箱</li>
+<li>• 类比: 智能汽车 ≠ 自动驾驶</li>
+</ul>
+</div>
+</div>
+
+<p class="footer">AI Native Game Engine · v2 Manifesto · 2026.05.28 · <a href="https://github.com/1441302031/ares-framework">Ares Framework</a></p>
+</body>
+</html>

@@ -1,0 +1,634 @@
+/* ============================================================
+   Ghibli 风格公共 CSS 库 — 千与千寻 × 龙猫
+   暖米纸底 · 朱红点缀 · 森林绿副调 · 手作质感
+
+   使用方式:
+     <link rel="stylesheet" href="/ghibli.css">
+     <body class="ghibli-body">
+       <nav class="ghibli-sidebar">...</nav>
+       <main class="ghibli-main">...</main>
+     </body>
+
+   规范:
+   - ghibli-body     : 页面根容器（纸纹理背景 + flex 布局）
+   - ghibli-sidebar  : 侧边栏导航（木纹质感）
+   - ghibli-main     : 主体内容区（内元素自动获得 Ghibli 样式）
+   - ghibli-card     : 卡片容器
+   - ghibli-card-grid: 卡片网格（2 列）
+   - ghibli-callout  : 提示框（.warn / .good 变体）
+   - ghibli-table    : 表格
+   - ghibli-tag      : 标签（-green/-orange/-red/-blue/-purple）
+   - ghibli-pre      : 代码块
+   - ghibli-timeline : 时间线
+   - ghibli-progress : 进度条
+   ============================================================ */
+
+/* ============================================================
+   CSS 变量
+   ============================================================ */
+:root {
+  /* 纸 & 木 */
+  --ghibli-bg: #faf6ed;
+  --ghibli-bg2: #f2ead8;
+  --ghibli-bg3: #ede3cc;
+  --ghibli-card: #fffdf7;
+  --ghibli-border: #d4c5a9;
+  --ghibli-text: #3d2b1f;
+  --ghibli-text2: #8b7355;
+
+  /* 千寻红 */
+  --ghibli-red: #c43a31;
+  --ghibli-red-dark: #9e2a24;
+
+  /* 无脸男金 */
+  --ghibli-gold: #d4a843;
+  --ghibli-gold-light: #f0d78c;
+
+  /* 龙猫绿 */
+  --ghibli-green: #5b8c5a;
+  --ghibli-green-light: #8dbd8b;
+  --ghibli-teal: #4a7c82;
+
+  /* 和服紫 */
+  --ghibli-purple: #7b5ea7;
+  --ghibli-purple-light: #b09cd4;
+
+  /* 阴影 */
+  --ghibli-shadow: 0 2px 16px rgba(139, 115, 85, 0.10);
+  --ghibli-shadow-hover: 0 6px 24px rgba(139, 115, 85, 0.15);
+  --ghibli-radius: 12px;
+
+  /* 字体 */
+  --ghibli-font: 'Noto Serif SC', 'Source Han Serif SC', Georgia, serif;
+  --ghibli-font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --ghibli-font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+/* ============================================================
+   基础
+   ============================================================ */
+.ghibli-body {
+  font-family: var(--ghibli-font);
+  background-color: var(--ghibli-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  color: var(--ghibli-text);
+  line-height: 1.9;
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.ghibli-body *,
+.ghibli-body *::before,
+.ghibli-body *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   侧边栏
+   ============================================================ */
+.ghibli-sidebar {
+  width: 270px;
+  min-width: 270px;
+  background: linear-gradient(180deg, #f2ead8 0%, #ede3cc 40%, #e8dcc5 100%);
+  border-right: 2px solid var(--ghibli-border);
+  padding: 28px 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: 2px 0 12px rgba(139, 115, 85, 0.08);
+  z-index: 10;
+}
+
+/* 顶部装饰条 */
+.ghibli-sidebar::before {
+  content: '';
+  display: block;
+  height: 4px;
+  margin: 0 12px 16px;
+  background: linear-gradient(90deg, transparent, var(--ghibli-gold), var(--ghibli-red), var(--ghibli-gold), transparent);
+  border-radius: 2px;
+}
+
+/* 侧边栏标题 */
+.ghibli-sidebar-title {
+  font-size: 13px;
+  color: var(--ghibli-red);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0 0 14px;
+  text-align: center;
+  font-family: var(--ghibli-font-sans);
+  font-weight: 600;
+  border-bottom: 2px dotted var(--ghibli-border);
+  padding-bottom: 10px;
+}
+
+/* 侧边栏列表（去默认样式） */
+.ghibli-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ghibli-sidebar li {
+  margin: 0;
+}
+
+/* 侧边栏链接 */
+.ghibli-sidebar a {
+  display: block;
+  color: var(--ghibli-text2);
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 3px;
+  font-family: var(--ghibli-font-sans);
+  transition: all 0.2s;
+}
+
+.ghibli-sidebar a:hover {
+  color: var(--ghibli-red);
+  background: rgba(196, 58, 49, 0.06);
+  transform: translateX(3px);
+}
+
+/* 侧边栏子级链接 */
+.ghibli-nav-sub {
+  padding-left: 32px !important;
+  font-size: 13px !important;
+  color: #a09080 !important;
+}
+
+/* ============================================================
+   主体内容区
+   内元素自动获得 Ghibli 样式
+   ============================================================ */
+.ghibli-main {
+  flex: 1;
+  padding: 40px 56px;
+  max-width: 920px;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(212, 168, 67, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(196, 58, 49, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 85% 20%, rgba(91, 140, 90, 0.02) 0%, transparent 40%);
+}
+
+/* 标题 */
+.ghibli-main h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+  color: var(--ghibli-red);
+  letter-spacing: 1px;
+  border-bottom: 2px dotted var(--ghibli-border);
+  padding-bottom: 12px;
+}
+
+.ghibli-main h2 {
+  font-size: 22px;
+  margin: 48px 0 16px;
+  padding-bottom: 8px;
+  color: var(--ghibli-red);
+  border-bottom: 2px dotted var(--ghibli-border);
+}
+
+.ghibli-main h3 {
+  font-size: 18px;
+  margin: 36px 0 12px;
+  color: var(--ghibli-teal);
+  font-family: var(--ghibli-font-sans);
+}
+
+.ghibli-main h4 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+  color: var(--ghibli-red);
+  opacity: 0.85;
+  font-family: var(--ghibli-font-sans);
+}
+
+/* 段落 & 列表 */
+.ghibli-main p {
+  margin-bottom: 14px;
+}
+
+.ghibli-main ul,
+.ghibli-main ol {
+  margin: 8px 0 16px 24px;
+}
+
+.ghibli-main li {
+  margin-bottom: 6px;
+}
+
+/* 链接 */
+.ghibli-main a {
+  color: var(--ghibli-red);
+  text-decoration: none;
+}
+
+.ghibli-main a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--ghibli-gold);
+  text-underline-offset: 3px;
+}
+
+/* 行内代码 */
+.ghibli-main code {
+  background: #faf6ed;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: var(--ghibli-font-mono);
+  color: #d4693e;
+  border: 1px solid var(--ghibli-border);
+}
+
+/* 引用 */
+.ghibli-main blockquote {
+  border-left: 4px solid var(--ghibli-teal);
+  background: linear-gradient(135deg, rgba(74, 124, 130, 0.04), rgba(74, 124, 130, 0.01));
+  padding: 14px 18px;
+  margin: 16px 0;
+  border-radius: 0 var(--ghibli-radius) var(--ghibli-radius) 0;
+}
+
+/* 图片 */
+.ghibli-main img {
+  max-width: 100%;
+  border-radius: var(--ghibli-radius);
+}
+
+/* 粗体 */
+.ghibli-main strong {
+  color: var(--ghibli-red);
+  opacity: 0.9;
+}
+
+/* ============================================================
+   代码块
+   ============================================================ */
+.ghibli-pre {
+  background: #fdfaf3;
+  padding: 18px 20px;
+  border-radius: var(--ghibli-radius);
+  overflow-x: auto;
+  font-size: 13px;
+  margin: 14px 0 22px;
+  border: 1px solid var(--ghibli-border);
+  box-shadow: var(--ghibli-shadow);
+  position: relative;
+}
+
+.ghibli-pre::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    var(--ghibli-red), var(--ghibli-gold),
+    var(--ghibli-green), var(--ghibli-teal));
+  border-radius: var(--ghibli-radius) var(--ghibli-radius) 0 0;
+}
+
+.ghibli-pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: var(--ghibli-text);
+  font-family: var(--ghibli-font-mono);
+  font-size: 13px;
+}
+
+.ghibli-main pre {
+  background: #fdfaf3;
+  padding: 18px 20px;
+  border-radius: var(--ghibli-radius);
+  overflow-x: auto;
+  font-size: 13px;
+  margin: 14px 0 22px;
+  border: 1px solid var(--ghibli-border);
+  box-shadow: var(--ghibli-shadow);
+}
+
+.ghibli-main pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: var(--ghibli-text);
+}
+
+/* ============================================================
+   表格
+   ============================================================ */
+.ghibli-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+  box-shadow: var(--ghibli-shadow);
+  border-radius: var(--ghibli-radius);
+  overflow: hidden;
+}
+
+.ghibli-table th {
+  background: linear-gradient(180deg, #e8dcc5, #ede3cc);
+  text-align: left;
+  padding: 11px 16px;
+  font-weight: 600;
+  color: var(--ghibli-red);
+  border-bottom: 2px solid var(--ghibli-red);
+  font-family: var(--ghibli-font-sans);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.ghibli-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--ghibli-border);
+  background: var(--ghibli-card);
+  font-size: 13px;
+}
+
+.ghibli-table tr:last-child td { border-bottom: none; }
+.ghibli-table tr:hover td { background: #fff9f0; }
+
+/* 主体内容区里的表格也自动样式 */
+.ghibli-main table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+  box-shadow: var(--ghibli-shadow);
+  border-radius: var(--ghibli-radius);
+  overflow: hidden;
+}
+
+.ghibli-main th {
+  background: linear-gradient(180deg, #e8dcc5, #ede3cc);
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--ghibli-red);
+  border-bottom: 2px solid var(--ghibli-red);
+  font-family: var(--ghibli-font-sans);
+  font-size: 13px;
+}
+
+.ghibli-main td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ghibli-border);
+  background: var(--ghibli-card);
+}
+
+.ghibli-main tr:hover td { background: #fff9f0; }
+
+/* ============================================================
+   标签
+   ============================================================ */
+.ghibli-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--ghibli-font-sans);
+  letter-spacing: 0.5px;
+}
+
+.ghibli-tag-green  { background: rgba(91, 140, 90, 0.12);  color: var(--ghibli-green); }
+.ghibli-tag-orange { background: rgba(212, 105, 62, 0.12); color: #d4693e; }
+.ghibli-tag-red    { background: rgba(196, 58, 49, 0.10);  color: var(--ghibli-red); }
+.ghibli-tag-blue   { background: rgba(74, 124, 130, 0.10); color: var(--ghibli-teal); }
+.ghibli-tag-purple { background: rgba(123, 94, 167, 0.10); color: var(--ghibli-purple); }
+
+/* ============================================================
+   提示框
+   ============================================================ */
+.ghibli-callout {
+  border-left: 4px solid var(--ghibli-teal);
+  background: linear-gradient(135deg, rgba(74, 124, 130, 0.04), rgba(74, 124, 130, 0.01));
+  padding: 16px 20px;
+  margin: 20px 0;
+  border-radius: 0 var(--ghibli-radius) var(--ghibli-radius) 0;
+  position: relative;
+}
+
+.ghibli-callout.warn {
+  border-color: #d4693e;
+  background: linear-gradient(135deg, rgba(212, 105, 62, 0.06), rgba(212, 105, 62, 0.01));
+}
+
+.ghibli-callout.good {
+  border-color: var(--ghibli-green);
+  background: linear-gradient(135deg, rgba(91, 140, 90, 0.05), rgba(91, 140, 90, 0.01));
+}
+
+/* 煤煤虫 */
+.ghibli-callout::after {
+  content: '• • •';
+  position: absolute;
+  bottom: 6px;
+  right: 16px;
+  font-size: 10px;
+  color: var(--ghibli-text2);
+  opacity: 0.3;
+  letter-spacing: 4px;
+}
+
+/* ============================================================
+   卡片
+   ============================================================ */
+.ghibli-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin: 16px 0;
+}
+
+.ghibli-card {
+  background: var(--ghibli-card);
+  border: 1px solid var(--ghibli-border);
+  border-radius: var(--ghibli-radius);
+  padding: 22px;
+  box-shadow: var(--ghibli-shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.ghibli-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 60px; height: 60px;
+  background: radial-gradient(circle, rgba(212, 168, 67, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.ghibli-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ghibli-shadow-hover);
+}
+
+/* 状态指示点 */
+.ghibli-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.ghibli-dot-green  { background: var(--ghibli-green); box-shadow: 0 0 6px rgba(91,140,90,0.35); }
+.ghibli-dot-orange { background: #d4693e; box-shadow: 0 0 6px rgba(212,105,62,0.35); }
+.ghibli-dot-red    { background: var(--ghibli-red); box-shadow: 0 0 6px rgba(196,58,49,0.35); }
+
+/* ============================================================
+   时间线
+   ============================================================ */
+.ghibli-timeline {
+  position: relative;
+  margin: 28px 0;
+  padding-left: 28px;
+  border-left: 3px dotted #d4693e;
+}
+
+.ghibli-timeline-item {
+  position: relative;
+  margin-bottom: 28px;
+  padding-left: 24px;
+}
+
+.ghibli-timeline-item::before {
+  content: '•';
+  position: absolute;
+  left: -34px; top: 2px;
+  font-size: 22px;
+  color: var(--ghibli-text);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.15);
+}
+
+.ghibli-timeline-item.week::before {
+  content: '🍂';
+  font-size: 15px;
+  left: -38px; top: 4px;
+}
+
+.ghibli-timeline-time {
+  font-size: 12px;
+  color: var(--ghibli-text2);
+  margin-bottom: 4px;
+  font-family: var(--ghibli-font-sans);
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   进度条
+   ============================================================ */
+.ghibli-progress {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--ghibli-bg3);
+  margin: 8px 0;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.ghibli-progress-fill { height: 100%; border-radius: 4px; }
+
+.ghibli-progress-green  { background: linear-gradient(90deg, var(--ghibli-green-light), var(--ghibli-green)); }
+.ghibli-progress-blue   { background: linear-gradient(90deg, #6a9a9e, var(--ghibli-teal)); }
+.ghibli-progress-purple { background: linear-gradient(90deg, var(--ghibli-purple-light), var(--ghibli-purple)); }
+.ghibli-progress-orange { background: linear-gradient(90deg, #e08860, #d4693e); }
+
+/* ============================================================
+   分割线 & 页脚
+   ============================================================ */
+.ghibli-hr {
+  margin: 60px 0 20px;
+  border: none;
+  border-top: 2px dotted var(--ghibli-border);
+  position: relative;
+}
+
+.ghibli-hr::after {
+  content: '⛩️';
+  position: absolute;
+  top: -18px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--ghibli-bg);
+  padding: 0 12px;
+  font-size: 20px;
+}
+
+.ghibli-footer {
+  color: var(--ghibli-text2);
+  font-size: 13px;
+  text-align: center;
+  font-family: var(--ghibli-font-sans);
+  margin-bottom: 40px;
+}
+
+/* ============================================================
+   回到顶部
+   ============================================================ */
+.ghibli-back-to-top {
+  position: fixed;
+  bottom: 30px; right: 30px;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--ghibli-card);
+  border: 2px solid var(--ghibli-border);
+  color: var(--ghibli-red);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: var(--ghibli-shadow);
+  z-index: 100;
+}
+
+.ghibli-back-to-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ghibli-back-to-top:hover {
+  background: var(--ghibli-red);
+  color: #fff;
+  border-color: var(--ghibli-red);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 16px rgba(196, 58, 49, 0.25);
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width: 768px) {
+  .ghibli-body {
+    flex-direction: column;
+  }
+
+  .ghibli-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    padding: 14px;
+  }
+
+  .ghibli-main {
+    padding: 24px;
+  }
+
+  .ghibli-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

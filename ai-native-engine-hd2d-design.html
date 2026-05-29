@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · ai-native-engine-hd2d-design</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#ai-native-引擎设计方案-类《歧路旅人》hd-2d-rpg">AI Native 引擎设计方案：类《歧路旅人》HD-2D RPG</a></li>
+<li style="margin-left:12px"><a href="#一、为什么不能-纯神经渲染">一、为什么不能"纯神经渲染"</a></li>
+<li style="margin-left:12px"><a href="#二、架构总览">二、架构总览</a></li>
+<li style="margin-left:12px"><a href="#三、核心设计决策">三、核心设计决策</a></li>
+<li style="margin-left:12px"><a href="#四、ai-模块详细设计">四、AI 模块详细设计</a></li>
+<li style="margin-left:12px"><a href="#五、技术选型">五、技术选型</a></li>
+<li style="margin-left:12px"><a href="#六、实施路线图">六、实施路线图</a></li>
+<li style="margin-left:12px"><a href="#七、关键挑战与对策">七、关键挑战与对策</a></li>
+<li style="margin-left:12px"><a href="#八、与传统引擎的差异总结">八、与传统引擎的差异总结</a></li>
+<li style="margin-left:12px"><a href="#九、一个实际场景-ai-native-支线任务">九、一个实际场景：AI Native 支线任务</a></li>
+<li style="margin-left:12px"><a href="#十、结论">十、结论</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="ai-native-引擎设计方案-类《歧路旅人》hd-2d-rpg">AI Native 引擎设计方案：类《歧路旅人》HD-2D RPG</h1>
+<blockquote>
+<p>目标：设计一套 AI Native 游戏引擎，能够驱动类《歧路旅人》风格的 HD-2D JRPG
+核心约束：HD-2D = 2D 像素精灵 + 3D 微缩景观 + 景深/光照等电影级后处理</p>
+</blockquote>
+<hr />
+<h2 id="一、为什么不能-纯神经渲染">一、为什么不能"纯神经渲染"</h2>
+<p>先回答一个关键问题：<strong>为什么不能像 GameNGen 那样，训练一个扩散模型来逐帧生成 HD-2D 画面？</strong></p>
+<p>GameNGen 的可行性建立在 DOOM 画面上——低分辨率、纹理简单、动作空间有限。而《歧路旅人》的 HD-2D 风格有完全不同的挑战：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>DOOM (GameNGen)</th>
+<th>歧路旅人 HD-2D</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>画面复杂度</td>
+<td>低分辨率像素纹理</td>
+<td>高清材质 + 景深 + 体积光 + 粒子</td>
+</tr>
+<tr>
+<td>空间一致性</td>
+<td>第一人称走廊</td>
+<td>等距视角 + 多视角切换</td>
+</tr>
+<tr>
+<td>角色风格</td>
+<td>统一低模</td>
+<td>像素精灵 + 不同尺寸/帧动画</td>
+</tr>
+<tr>
+<td>场景切换</td>
+<td>即时</td>
+<td>淡入淡出 + 转场特效</td>
+</tr>
+<tr>
+<td>战斗画面</td>
+<td>无切换</td>
+<td>镜头推入 → 回合制 UI 叠加</td>
+</tr>
+<tr>
+<td>UI 层</td>
+<td>极简 HUD</td>
+<td>复杂菜单/对话框/属性面板</td>
+</tr>
+<tr>
+<td>叙事文本</td>
+<td>无</td>
+<td>大段日式对白 + 旁白</td>
+</tr>
+</tbody>
+</table>
+<p><strong>结论</strong>：纯神经渲染在今天无法可靠地维持 HD-2D 的视觉一致性和精确性。即使未来技术突破，游戏逻辑的可控性也需要确定性保障。</p>
+<p>因此，我选择 <strong>结构化神经混合引擎（SNHE: Structured Neural Hybrid Engine）</strong>。</p>
+<hr />
+<h2 id="二、架构总览">二、架构总览</h2>
+<div class="codehilite"><pre><span></span><code>                         玩家输入
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+    ┌─────────▼──────────┐    ┌──────────▼──────────┐
+    │  确定性游戏核心      │    │   AI 生成管线         │
+    │  (Rust / C++)       │    │  (Python + GPU)       │
+    │                     │    │                      │
+    │  · 战斗状态机        │    │  · LLM 对话引擎       │
+    │  · 任务系统          │◄──►│  · 扩散精灵生成器     │
+    │  · 场景图/碰撞       │    │  · 世界模型(地图)     │
+    │  · 存档/数据         │    │  · NPC 行为模型       │
+    │  · 网络同步(Ares)    │    │  · 音乐/音效生成      │
+    └─────────┬──────────┘    └──────────┬──────────┘
+              │                           │
+              └─────────────┬─────────────┘
+                            │
+              ┌─────────────▼─────────────┐
+              │   神经-传统混合渲染器       │
+              │                           │
+              │  ┌─────────────────────┐   │
+              │  │ 3D 场景渲染(传统管线) │   │
+              │  │ · PBR 材质/光照      │   │
+              │  │ · 微缩景观景深(Camera)│   │
+              │  │ · 体积雾/粒子系统    │   │
+              │  └─────────────────────┘   │
+              │  ┌─────────────────────┐   │
+              │  │ 2D 精灵层(纹理采样)  │   │
+              │  │ · 像素角色 + 动画    │   │
+              │  │ · 对话框/UI 叠加     │   │
+              │  └─────────────────────┘   │
+              │  ┌─────────────────────┐   │
+              │  │ 神经增强层(可选)     │   │
+              │  │ · 实时风格迁移       │   │
+              │  │ · AI 超分辨率        │   │
+              │  │ · 帧间一致性优化     │   │
+              │  └─────────────────────┘   │
+              └─────────────┬─────────────┘
+                            │
+                      最终画面输出
+</code></pre></div>
+
+<hr />
+<h2 id="三、核心设计决策">三、核心设计决策</h2>
+<h3 id="决策-1-游戏逻辑保持确定性">决策 1：游戏逻辑保持确定性</h3>
+<p><strong>为什么</strong>：HD-2D JRPG 的核心是精确的战斗系统（Break/Boost、弱点、连击）和复杂的任务分支。这些必须 100% 可控。</p>
+<p>✅ <strong>做法</strong>：用 Rust 实现确定性游戏核心，类似 Ares 架构但改为单机优先。
+- 战斗状态机：回合制 B-Tree
+- 任务系统：图状对话树 + 条件触发器
+- 场景管理：ECS 架构管理精灵/实体/碰撞</p>
+<p>❌ <strong>不做法</strong>：用 LLM 直接控制游戏逻辑（不可靠、高延迟、难以调试）</p>
+<h3 id="决策-2-ai-主导内容生产管线-而非实时生成">决策 2：AI 主导内容生产管线，而非实时生成</h3>
+<p>这是"AI Native"的真正价值所在——不是替代渲染，而是<strong>让 AI 成为内容生产的主力</strong>。</p>
+<div class="codehilite"><pre><span></span><code>传统流程：          人工设计 → 工具制作 → 游戏引擎 → 玩家
+AI Native 流程：    AI设计 → 人工精修 → 游戏引擎 → 玩家
+                                        ↑
+                                   AI实时适配 ← 玩家行为
+</code></pre></div>
+
+<h3 id="决策-3-混合渲染-传统管线-神经增强">决策 3：混合渲染——传统管线 + 神经增强</h3>
+<p>HD-2D 的本质是多层合成：
+1. <strong>3D 背景层</strong>：传统 PBR 渲染（可靠、高性能）
+2. <strong>2D 精灵层</strong>：纹理采样 + 帧动画（像素艺术不可替代）
+3. <strong>视觉效果层</strong>：后处理管线（景深、光晕、色调映射）
+4. <strong>UI 层</strong>：传统 UI 系统（菜单、对话框需要精确布局）</p>
+<p>第 4 层可选加入<strong>神经增强</strong>：实时风格滤镜、AI 超分辨率、动态光照调整。</p>
+<hr />
+<h2 id="四、ai-模块详细设计">四、AI 模块详细设计</h2>
+<h3 id="4-1-llm-叙事引擎">4.1 LLM 叙事引擎</h3>
+<p><strong>定位</strong>：驱动 NPC 自由对话 + 动态任务生成</p>
+<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────┐
+│               LLM 叙事引擎                    │
+│                                              │
+│  输入:                                       │
+│  · NPC 身份卡（种族/职业/性格/背景）           │
+│  · 玩家行为历史（已完成任务/选择/声望）        │
+│  · 当前场景上下文（地点/时间/在场NPC）         │
+│  · 世界状态（主线进度/阵营关系）               │
+│                                              │
+│  输出:                                       │
+│  · 对话文本 + 表情/动作指令                   │
+│  · 可选任务分支                              │
+│  · 动态世界反馈（城镇变化/NPC反应）            │
+│                                              │
+│  约束:                                       │
+│  · 温度 = 0.7（有创意但不离谱）               │
+│  · 输出格式: JSON（结构化给引擎解析）          │
+│  · 硬编码钩子: 主线剧情不走 LLM               │
+│  · 本地推理: llama.cpp 7B-13B 量化模型        │
+└─────────────────────────────────────────────┘
+</code></pre></div>
+
+<p><strong>示例输出</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;npc_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;village_elder_01&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;dialogue&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;旅人啊，北方的森林最近不太平... 如果你能帮我找到失踪的猎人，我会告诉你古代遗迹的秘密。&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;emotion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;worried&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;point_north&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;quest_offer&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;side_quest_042&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;find_person&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hunter_takeshi&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="4-2-扩散精灵生成器">4.2 扩散精灵生成器</h3>
+<p><strong>定位</strong>：生成一致的像素精灵（角色/NPC/怪物）</p>
+<div class="codehilite"><pre><span></span><code>训练管线:
+
+  风格参考图集          LoRA 微调
+  (歧路旅人官方图)  ──►  SDXL/PixelArt 模型
+                          │
+                          ├──► 角色生成: &quot;16-bit pixel art, female warrior,
+                          │    blue cape, Octopath Traveler HD-2D style&quot;
+                          │
+                          ├──► 动画帧: 用 AnimateDiff 生成 idle/walk/attack
+                          │    帧序列，保持像素一致性
+                          │
+                          └──► 变体生成: 同一角色的不同表情/装备外观
+
+运行时管线:
+
+  LLM描述角色  ──►  扩散模型生成  ──►  像素化后处理  ──►  精灵表打包
+                                         (降色/锐化)       (TexturePacker)
+</code></pre></div>
+
+<p><strong>关键约束</strong>：
+- 精灵不能实时生成（延迟太高），须<strong>预生成 + 游戏内加载</strong>
+- 同一角色系列用 <strong>seed 固定 + 提示词变体</strong> 保证风格一致
+- 输出规格：32×32 到 128×128，16 色调色板</p>
+<h3 id="4-3-世界模型-地图生成">4.3 世界模型——地图生成</h3>
+<p><strong>定位</strong>：AI 辅助生成 HD-2D 微缩景观</p>
+<div class="codehilite"><pre><span></span><code>输入: 策划描述 + 约束条件
+   ↓
+┌─────────────────────────────────────┐
+│          AI 地图生成管线             │
+│                                     │
+│  1. LLM 布局规划                     │
+│     &quot;一个被森林环绕的渔村，3条主路，  │
+│      码头在南方，旅店在中央广场旁&quot;     │
+│              ↓                      │
+│  2. 程序化生成 + AI 细化              │
+│     地形高度图 → 建筑放置 → 路径寻路   │
+│              ↓                      │
+│  3. Stable Diffusion + ControlNet   │
+│     以布局为条件的纹理/材质生成        │
+│              ↓                      │
+│  4. 后处理                           │
+│     倾斜移位景深 → 微缩模型效果        │
+│     统一色调映射 → HD-2D 风格一致性    │
+└─────────────────────────────────────┘
+   ↓
+输出: 3D 场景 + 导航网格 + 触发区域
+</code></pre></div>
+
+<h3 id="4-4-npc-行为模型">4.4 NPC 行为模型</h3>
+<p><strong>定位</strong>：让 NPC 有生活感，不只是站桩</p>
+<div class="codehilite"><pre><span></span><code>NPC 行为引擎:
+
+  ┌──────────┐     ┌──────────────┐
+  │ 日程表    │────►│  当前目标     │
+  │ (预设)    │     │              │
+  └──────────┘     └──────┬───────┘
+                          │
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+    ┌─────────┐    ┌──────────┐    ┌──────────┐
+    │ 移动     │    │ 交互      │    │ 反应      │
+    │ A*寻路   │    │ 对话/交易 │    │ 天气/事件  │
+    └─────────┘    └──────────┘    └──────────┘
+
+  小型 LLM (1B-3B) 用于:
+  · 生成日程变体（避免所有 NPC 每天都一样）
+  · 动态反应（玩家偷东西 → NPC 报警）
+  · 谣言系统（NPC 之间传递信息）
+</code></pre></div>
+
+<hr />
+<h2 id="五、技术选型">五、技术选型</h2>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>技术</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>游戏核心</strong></td>
+<td>Rust (复用 Ares 架构)</td>
+<td>性能 + 类型安全 + 已有基础</td>
+</tr>
+<tr>
+<td><strong>3D 渲染</strong></td>
+<td>bgfx 或 WGPU</td>
+<td>跨平台、轻量、Rust 绑定好</td>
+</tr>
+<tr>
+<td><strong>UI 系统</strong></td>
+<td>egui (Rust) 或 Unity</td>
+<td>即时模式 UI，简单高效</td>
+</tr>
+<tr>
+<td><strong>LLM 推理</strong></td>
+<td>llama.cpp + GGUF</td>
+<td>本地推理、CPU友好、量化支持</td>
+</tr>
+<tr>
+<td><strong>扩散模型</strong></td>
+<td>SDXL + LoRA (Python 离线)</td>
+<td>生态最成熟、LoRA 风格控制好</td>
+</tr>
+<tr>
+<td><strong>精灵动画</strong></td>
+<td>AnimateDiff + 像素后处理</td>
+<td>帧序列一致性</td>
+</tr>
+<tr>
+<td><strong>地图生成</strong></td>
+<td>程序化 + ControlNet</td>
+<td>可控布局 + AI 纹理</td>
+</tr>
+<tr>
+<td><strong>音频</strong></td>
+<td>传统音频引擎 + AI 作曲</td>
+<td>BGM 预生成，音效传统</td>
+</tr>
+<tr>
+<td><strong>脚本</strong></td>
+<td>Lua 或 Rhai</td>
+<td>轻量嵌入，策划友好</td>
+</tr>
+<tr>
+<td><strong>平台</strong></td>
+<td>PC → Switch → 移动端</td>
+<td>逐步扩展</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="六、实施路线图">六、实施路线图</h2>
+<h3 id="phase-1-基础框架-2-3-月">Phase 1：基础框架（2-3 月）</h3>
+<div class="codehilite"><pre><span></span><code>目标: 可运行的 HD-2D 场景 + 角色移动
+
+□ Rust 引擎核心（ECS + 场景图 + 事件系统）
+□ 3D 渲染器（bgfx/WGPU，微缩景观景深）
+□ 2D 精灵系统（纹理采样 + 帧动画）
+□ 基础角色控制（8方向移动 + 跑步）
+□ 场景切换（淡入淡出转场）
+□ 手动制作一个&quot;起始村庄&quot;作为基准
+</code></pre></div>
+
+<h3 id="phase-2-ai-内容管线-2-3-月">Phase 2：AI 内容管线（2-3 月）</h3>
+<div class="codehilite"><pre><span></span><code>目标: AI 辅助生成游戏内容
+
+□ SDXL + HD-2D LoRA 训练（用歧路旅人截图 + 合成数据）
+□ 精灵生成器工具链（描述 → 像素精灵 → 精灵表）
+□ LLM 叙事引擎集成（llama.cpp 嵌入 Rust）
+□ 对话系统 + NPC 身份系统
+□ AI 地图生成管线（LLM 布局 → 程序化 → ControlNet 纹理）
+□ 批量生成一个城镇 + 10 个 NPC 作为验证
+</code></pre></div>
+
+<h3 id="phase-3-游戏系统-2-月">Phase 3：游戏系统（2 月）</h3>
+<div class="codehilite"><pre><span></span><code>目标:<span class="w"> </span>可玩的<span class="w"> </span><span class="nv">RPG</span><span class="w"> </span>核心循环
+
+□<span class="w"> </span>回合制战斗系统（<span class="k">Break</span><span class="o">/</span><span class="nv">Boost</span><span class="w"> </span>机制）
+□<span class="w"> </span>任务系统（主线和<span class="w"> </span><span class="nv">LLM</span><span class="w"> </span>动态支线）
+□<span class="w"> </span>物品<span class="o">/</span>装备<span class="o">/</span>技能系统
+□<span class="w"> </span>队伍系统（<span class="mi">4</span><span class="o">-</span><span class="mi">8</span><span class="w"> </span>角色切换）
+□<span class="w"> </span><span class="nv">NPC</span><span class="w"> </span>行为引擎（日程<span class="w"> </span><span class="o">+</span><span class="w"> </span>反应）
+□<span class="w"> </span>存档系统
+□<span class="w"> </span>手工打磨一个完整<span class="s2">&quot;新手村 → 第一个 Boss&quot;</span>流程
+</code></pre></div>
+
+<h3 id="phase-4-ai-runtime-集成-2-月">Phase 4：AI Runtime 集成（2 月）</h3>
+<div class="codehilite"><pre><span></span><code>目标: 真正的 AI Native 体验
+
+□ 动态对话（NPC 根据玩家行为变化对话内容）
+□ 动态任务生成（LLM 根据世界状态生成支线）
+□ NPC 记忆系统（记住与玩家的交互历史）
+□ 自适应难度（根据玩家表现调整敌人强度）
+□ 动态世界反馈（完成主线后世界变化）
+□ 性能优化（LLM 推理异步化、缓存热对话）
+</code></pre></div>
+
+<h3 id="phase-5-打磨与发布-2-3-月">Phase 5：打磨与发布（2-3 月）</h3>
+<div class="codehilite"><pre><span></span><code>□ 完整游戏内容（手工 + AI 辅助混合）
+□ 性能优化（Switch 30FPS 目标）
+□ 本地化（LLM 辅助翻译）
+□ QA 测试（AI 生成的边缘 case 需要大量测试）
+□ 发布准备
+</code></pre></div>
+
+<hr />
+<h2 id="七、关键挑战与对策">七、关键挑战与对策</h2>
+<h3 id="挑战-1-像素艺术的一致性">挑战 1：像素艺术的一致性</h3>
+<p>AI 扩散模型天然倾向于"平滑"，与像素艺术的"锐利"矛盾。</p>
+<p><strong>对策</strong>：
+- 训练专用的 pixel-art LoRA（16色调色板约束）
+- 后处理管线：降色 → 锐化 → 边缘检测 → 像素对齐
+- 同一角色系列固定 seed，只变提示词的装备/表情部分</p>
+<h3 id="挑战-2-llm-幻觉与游戏逻辑冲突">挑战 2：LLM 幻觉与游戏逻辑冲突</h3>
+<p>LLM 可能生成与游戏状态不符的对话（"去东边的塔"——但塔已经被摧毁）。</p>
+<p><strong>对策</strong>：
+- <strong>RAG 注入</strong>：每次推理前，将当前世界状态向量化注入 prompt
+- <strong>结构化输出</strong>：强制 JSON schema，只提取可执行指令
+- <strong>硬编码保护</strong>：主线剧情、关键道具、战斗系统不经过 LLM
+- <strong>热缓存</strong>：常见对话预计算并人工审核</p>
+<h3 id="挑战-3-实时推理延迟">挑战 3：实时推理延迟</h3>
+<p>llama.cpp 推理需要 200-500ms，不够"实时"。</p>
+<p><strong>对策</strong>：
+- 对话场景异步生成（玩家靠近 NPC 就开始预生成）
+- 三级缓存：热 → 温 → 冷对话
+- 流式输出 + 打字机效果（参考《逆水寒》AI NPC）
+- 场景加载时预生成该区域全部 NPC 对话</p>
+<h3 id="挑战-4-hd-2d-微缩景观的自动生成">挑战 4：HD-2D 微缩景观的自动生成</h3>
+<p>AI 生成的 3D 场景往往缺乏"手工感"。</p>
+<p><strong>对策</strong>：
+- 程序化生成做骨架（保证可玩性）
+- AI 做纹理/材质/点缀（增加视觉丰富度）
+- 人工精修关键场景（主线场景保持手工艺品质）
+- 算法模拟倾斜移位景深（这是 HD-2D "微缩模型感"的关键）</p>
+<hr />
+<h2 id="八、与传统引擎的差异总结">八、与传统引擎的差异总结</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>传统引擎 (Unity/Unreal)</th>
+<th>AI Native 引擎 (本方案)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>内容生产</strong></td>
+<td>人工制作 100%</td>
+<td>AI 生成 80% + 人工精修 20%</td>
+</tr>
+<tr>
+<td><strong>NPC 对话</strong></td>
+<td>固定文本树</td>
+<td>LLM 动态对话 + 硬编码主线</td>
+</tr>
+<tr>
+<td><strong>任务系统</strong></td>
+<td>预定义全部任务</td>
+<td>主线预定义 + AI 生成支线</td>
+</tr>
+<tr>
+<td><strong>地图制作</strong></td>
+<td>手摆每一块石头</td>
+<td>AI 生成布局 + 人工关键区域</td>
+</tr>
+<tr>
+<td><strong>精灵资产</strong></td>
+<td>像素画师逐帧绘制</td>
+<td>AI 批量生成 + 人工调色</td>
+</tr>
+<tr>
+<td><strong>世界反应</strong></td>
+<td>脚本驱动，固定分支</td>
+<td>玩家行为 → LLM 推理 → 动态反馈</td>
+</tr>
+<tr>
+<td><strong>开发效率</strong></td>
+<td>100 人年</td>
+<td>目标 20-30 人年（AI 加速 3-5x）</td>
+</tr>
+<tr>
+<td><strong>内容量</strong></td>
+<td>固定</td>
+<td>理论上无限（受限于 LLM 上下文窗口）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="九、一个实际场景-ai-native-支线任务">九、一个实际场景：AI Native 支线任务</h2>
+<p>以"失踪猎人"支线为例，展示完整流水线：</p>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">LLM</span><span class="w"> </span><span class="n">生成任务</span>
+<span class="w">   </span><span class="n">输入</span><span class="p">:</span><span class="w"> </span><span class="n">世界状态</span><span class="err">（</span><span class="n">北方森林有怪物的传闻</span><span class="w"> </span><span class="err">×</span><span class="w"> </span><span class="mf">3</span><span class="err">）</span>
+<span class="w">   </span><span class="n">输出</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;渔村长老的猎人儿子在北方森林失踪了3天&quot;</span>
+
+<span class="mf">2.</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="n">地图生成</span>
+<span class="w">   </span><span class="n">输入</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;北方森林深处的小洞穴&quot;</span>
+<span class="w">   </span><span class="n">输出</span><span class="p">:</span><span class="w"> </span><span class="mf">3</span><span class="n">D</span><span class="w"> </span><span class="n">场景</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">navmesh</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">触发区域</span>
+
+<span class="mf">3.</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="n">精灵生成</span>
+<span class="w">   </span><span class="n">输入</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;受伤的年轻猎人，像素风格&quot;</span>
+<span class="w">   </span><span class="n">输出</span><span class="p">:</span><span class="w"> </span><span class="n">猎人</span><span class="w"> </span><span class="n">NPC</span><span class="w"> </span><span class="n">精灵</span><span class="err">（</span><span class="n">idle</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">受伤</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">被救</span><span class="err">）</span>
+
+<span class="mf">4.</span><span class="w"> </span><span class="n">LLM</span><span class="w"> </span><span class="n">对话树</span>
+<span class="w">   </span><span class="n">输入</span><span class="p">:</span><span class="w"> </span><span class="n">猎人身份</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">怪物信息</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">玩家声望</span>
+<span class="w">   </span><span class="n">输出</span><span class="p">:</span><span class="w"> </span><span class="mf">3</span><span class="w"> </span><span class="n">个对话分支</span><span class="err">（</span><span class="n">感谢</span><span class="o">/</span><span class="n">请求护送</span><span class="o">/</span><span class="n">给报酬</span><span class="err">）</span>
+
+<span class="mf">5.</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="kr">Run</span><span class="n">time</span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">玩家找到猎人时</span><span class="err">，</span><span class="n">LLM</span><span class="w"> </span><span class="n">基于当前队伍组成调整对话</span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">如果队伍中有医师角色</span><span class="err">，</span><span class="n">对话增加治疗选项</span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">任务完成后</span><span class="err">，</span><span class="n">渔村</span><span class="w"> </span><span class="n">NPC</span><span class="w"> </span><span class="n">的问候语全部更新</span>
+
+<span class="n">全程唯一人工参与</span><span class="err">：</span><span class="n">审核任务逻辑是否合理</span><span class="err">（</span><span class="mf">5</span><span class="n">分钟</span><span class="err">）</span>
+</code></pre></div>
+
+<hr />
+<h2 id="十、结论">十、结论</h2>
+<p>我选择的路线是 <strong>结构化神经混合引擎（SNHE）</strong>：</p>
+<div class="codehilite"><pre><span></span><code>确定性游戏核心 ──控制──► 游戏状态
+       │                      │
+       │                 (条件注入)
+       │                      │
+       ▼                      ▼
+   AI 内容管线          传统+神经混合渲染器
+  (离线批量生产)         (实时高性能输出)
+</code></pre></div>
+
+<p><strong>核心哲学</strong>：
+- AI 负责"创造力"——内容生成、叙事、世界反应
+- 传统引擎负责"确定性"——战斗、渲染、物理、存档
+- 两者通过<strong>结构化接口</strong>解耦，各司其职</p>
+<p><strong>为什么不做纯神经引擎</strong>：
+GameNGen 和 Oasis 是伟大的技术突破，但它们面向的是"生成一个能玩的游戏"而非"精确控制一个特定的艺术风格"。HD-2D 的美学价值恰恰在于<strong>精确控制</strong>——景深的每一档、像素的每一个色块、镜头角度的每一度，都是设计的产物，而非概率分布。</p>
+<p><strong>AI Native 的真正含义</strong>：
+不是"AI 替代引擎"，而是<strong>"AI 成为引擎的一等公民"</strong>——从设计之初就将 AI 能力内建到引擎的架构中，让每个子系统都能调用和受益于 AI。</p>
+<hr />
+<p><em>设计日期：2026年5月28日</em>
+<em>关联项目：<a href="https://github.com/1441302031/ares-framework">Ares Framework</a></em></p>
+</main>
+</body>
+</html>

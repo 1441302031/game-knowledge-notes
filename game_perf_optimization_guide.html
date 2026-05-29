@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · game_perf_optimization_guide</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#游戏性能优化工程师知识体系-amp-新人培养指南">游戏性能优化工程师知识体系 &amp; 新人培养指南</a></li>
+<li style="margin-left:12px"><a href="#一、游戏性能优化工程师知识体系">一、游戏性能优化工程师知识体系</a></li>
+<li style="margin-left:12px"><a href="#二、新手培养路径全景图">二、新手培养路径全景图</a></li>
+<li style="margin-left:12px"><a href="#三、给导师的核心心法">三、给导师的核心心法</a></li>
+<li style="margin-left:12px"><a href="#四、推荐资源清单">四、推荐资源清单</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="游戏性能优化工程师知识体系-amp-新人培养指南">游戏性能优化工程师知识体系 &amp; 新人培养指南</h1>
+<blockquote>
+<p>"优化不是魔法，是对计算机工作原理的深刻理解，加上系统性的方法论。"</p>
+</blockquote>
+<hr />
+<h2 id="一、游戏性能优化工程师知识体系">一、游戏性能优化工程师知识体系</h2>
+<h3 id="1-硬件底层基础-根基中的根基">1. 硬件底层基础（根基中的根基）</h3>
+<table>
+<thead>
+<tr>
+<th>领域</th>
+<th>必须掌握的内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CPU 微架构</strong></td>
+<td>流水线（Pipeline）、分支预测（Branch Prediction）、乱序执行（Out-of-Order Execution）、缓存层次（L1/L2/L3）、Cache Line（64 字节）、伪共享（False Sharing）问题</td>
+</tr>
+<tr>
+<td><strong>SIMD</strong></td>
+<td>SSE/AVX/NEON 指令集，如何在引擎中利用 SIMD 加速（Unity Burst Compiler 的核心就是自动向量化）</td>
+</tr>
+<tr>
+<td><strong>GPU 架构</strong></td>
+<td>IMR（Immediate Mode Rendering）vs TBR（Tile-Based Rendering，移动端）、Warp/Wavefront 调度、寄存器压力、Occupancy 概念</td>
+</tr>
+<tr>
+<td><strong>内存层次</strong></td>
+<td>从寄存器 → L1 → L2 → L3 → 主存 → 磁盘的延迟量级（能脱口而出：L1 ~1ns，主存 ~100ns，磁盘 ~10ms）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>核心经验</strong>：在手机上，一次 Cache Miss 可能导致 200+ 时钟周期的停顿。性能优化的本质就是"让数据待在离 CPU 最近的地方"。</p>
+</blockquote>
+<hr />
+<h3 id="2-渲染管线深度理解">2. 渲染管线深度理解</h3>
+<ul>
+<li><strong>Draw Call 的本质开销</strong>：不是 GPU 在画，是 CPU 在准备状态切换（SetRenderState、SetShader、SetTexture...），每个 Draw Call 都是一次昂贵的上下文切换</li>
+<li><strong>合批策略</strong>：Static Batching、Dynamic Batching、GPU Instancing、SRP Batcher（Unity）</li>
+<li><strong>Overdraw</strong>：手机上最致命的性能杀手——像素被重复绘制多次。原则：从前往后画不透明物体（减少 Overdraw），从后往前画透明物体（保证混合正确）</li>
+<li><strong>带宽优化</strong>：纹理压缩格式选择（ASTC 优于 ETC2，移动端不要用 DXT）、Mipmap 必开、纹理 Atlas 减少状态切换</li>
+<li><strong>Shader 优化</strong>：精度选择（<code>half</code> vs <code>float</code>）、避免动态分支（<code>if</code> 在 GPU 上可能是真分支）、数学近似（fast inverse sqrt、用 <code>saturate</code> 代替 <code>min/max</code>）</li>
+</ul>
+<hr />
+<h3 id="3-cpu-端架构与多线程">3. CPU 端架构与多线程</h3>
+<ul>
+<li><strong>Job System</strong>：Unity DOTS 的 Job System / Unreal 的 Task Graph——把任务拆成细粒度 Job 并行执行</li>
+<li><strong>ECS 架构</strong>：Data-Oriented Design。把"分散在内存各处的对象"变成"连续的数组"，利用 Cache Line 提升性能</li>
+<li><strong>无锁编程</strong>：CAS（Compare-And-Swap）、原子操作（<code>std::atomic</code>）、内存屏障（Memory Barrier / Fence）、Lock-Free Queue（SPSC / MPMC）</li>
+<li><strong>避免 GC</strong>：C# 中 <code>struct</code> vs <code>class</code> 的选择策略、对象池（Object Pool）设计、<code>StringBuilder</code> 复用、避免装箱（Boxing）</li>
+</ul>
+<blockquote>
+<p><strong>关键经验</strong>：在 16.6ms（60fps）的帧预算里，一次 Gen2 GC 可能吃掉 5ms。移动端 GC 更敏感——IL2CPP 下虽然没有 GC 停顿，但内存分配仍然昂贵。</p>
+</blockquote>
+<hr />
+<h3 id="4-网络性能优化">4. 网络性能优化</h3>
+<ul>
+<li><strong>同步模型对比</strong>：帧同步（Lockstep，确定性、低带宽、高延迟敏感）vs 状态同步（Snapshot Interpolation，高带宽、延迟容忍）</li>
+<li><strong>带宽优化技巧</strong>：位压缩（给坐标用 16 位而不是 32 位）、增量同步（只发变化的数据）、ProtoBuf/FlatBuffers 的零拷贝优势</li>
+<li><strong>延迟补偿</strong>：Lag Compensation（CS:GO 的技术——回退时间验证命中）、客户端预测 + 服务器和解（Server Reconciliation，Valve 的经典方案）</li>
+<li><strong>UDP vs TCP</strong>：游戏用 UDP 的核心原因——TCP 的 Head-of-Line Blocking（队头阻塞）。丢失一个包，后面的包都得等</li>
+</ul>
+<hr />
+<h3 id="5-性能分析工具链">5. 性能分析工具链</h3>
+<table>
+<thead>
+<tr>
+<th>平台</th>
+<th>CPU Profiler</th>
+<th>GPU Profiler</th>
+<th>内存分析</th>
+<th>网络分析</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PC</strong></td>
+<td>perf、VTune、Superluminal</td>
+<td>RenderDoc、PIX</td>
+<td>dotMemory、heaptrack</td>
+<td>Wireshark</td>
+</tr>
+<tr>
+<td><strong>移动端</strong></td>
+<td>Xcode Instruments、Simpleperf</td>
+<td>Snapdragon Profiler、ARM Mobile Studio</td>
+<td>Xcode Memory Graph、Android Memory Profiler</td>
+<td>Charles、mitmproxy</td>
+</tr>
+<tr>
+<td><strong>Unity 内置</strong></td>
+<td>Unity Profiler、<code>Profiler.BeginSample()</code></td>
+<td>Frame Debugger</td>
+<td>Memory Profiler Package</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Unreal 内置</strong></td>
+<td>Unreal Insights、<code>SCOPE_CYCLE_COUNTER</code></td>
+<td>GPU Visualizer</td>
+<td>Memory Profiler、LLM</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="6-系统思维-区分-会优化-和-优化专家">6. 系统思维（区分"会优化"和"优化专家"）</h3>
+<ul>
+<li><strong>性能预算制</strong>：16.6ms（60fps）或 33.3ms（30fps），每个子系统都要有明确的预算。比如：渲染 8ms、逻辑 4ms、网络 2ms、留 2.6ms Buffer</li>
+<li><strong>瓶颈定位三步法</strong>：① 是 CPU Bound 还是 GPU Bound？（降低分辨率看帧率变化）② 是哪个子系统？（逐个关闭系统看帧率变化）③ 精准定位到函数（Profiler Trace）</li>
+<li><strong>数据驱动，绝不猜测</strong>：永远先 Profile，再优化。没有 Profiler 数据支撑的优化是赌博</li>
+<li><strong>二八法则</strong>：20% 的代码贡献 80% 的耗时。找到真正的热点再下手，不要在无关代码上浪费时间</li>
+<li><strong>过早优化是万恶之源</strong>（Donald Knuth）：先做对（Correctness First），再做快（Performance Second）。但架构层面的性能考虑不算"过早"——那是设计</li>
+</ul>
+<hr />
+<h2 id="二、新手培养路径全景图">二、新手培养路径全景图</h2>
+<div class="codehilite"><pre><span></span><code>第1-2月          第2-3月          第3-6月           第6-12月         12月+
+基础夯实    →    工具上手    →    项目实战    →    独立成长    →    突破瓶颈
+ 理论+Code         Profiler          Shadow            独立负责          架构视野
+ Review           魔鬼训练          导师模式          子系统优化        性能自动化
+</code></pre></div>
+
+<hr />
+<h3 id="第一阶段-基础夯实-第-1-2-个月">第一阶段：基础夯实（第 1-2 个月）</h3>
+<p><strong>目标</strong>：建立"计算机到底是怎么工作的"底层认知</p>
+<h4 id="必读书单">必读书单</h4>
+<ol>
+<li><strong>《深入理解计算机系统》(CSAPP)</strong> — 重点第 5-6 章（缓存层次、内存系统）</li>
+<li><strong>《游戏引擎架构》(Game Engine Architecture)</strong> — Jason Gregory，游戏引擎的"圣经"</li>
+<li><strong>《Real-Time Rendering》</strong> — 渲染管线参考手册</li>
+</ol>
+<h4 id="每周专项训练">每周专项训练</h4>
+<table>
+<thead>
+<tr>
+<th>周次</th>
+<th>训练内容</th>
+<th>验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1 周</td>
+<td>写一段代码制造 Cache Miss（如列优先遍历二维数组），然后修复它（行优先遍历），测量性能差距</td>
+<td>跑 benchmark，至少 5x 差距</td>
+</tr>
+<tr>
+<td>第 2 周</td>
+<td>理解内存布局：struct 字段排列对 sizeof 的影响，padding 概念</td>
+<td>手算 struct 大小，用代码验证</td>
+</tr>
+<tr>
+<td>第 3 周</td>
+<td>多线程基础：用两个线程操作共享变量，复现 Race Condition，然后用 atomic/mutex 修复</td>
+<td>Thread Sanitizer 通过</td>
+</tr>
+<tr>
+<td>第 4 周</td>
+<td>实现一个简易对象池（Object Pool），对比有无对象池下的 GC Alloc</td>
+<td>Unity Profiler Deep Profile 对比</td>
+</tr>
+</tbody>
+</table>
+<h4 id="每日-code-review-15-分钟">每日 Code Review（15 分钟）</h4>
+<p>导师带新人看一段引擎底层代码（如 Unity 的开源部分），解释为什么这么写。不是讲"这行代码做什么"，而是讲"为什么不那样写"。</p>
+<hr />
+<h3 id="第二阶段-工具上手-第-2-3-个月">第二阶段：工具上手（第 2-3 个月）</h3>
+<p><strong>目标</strong>：会用 Profiler 看数据，能从数据中找到问题</p>
+<h4 id="profiler-魔鬼训练">Profiler 魔鬼训练</h4>
+<blockquote>
+<p>给一段"故意写烂"的代码（混合了 Draw Call 爆炸、GC Alloc 泄漏、CPU 热点三重问题），要求：
+1. 用 Profiler 定位所有问题
+2. 逐一修复
+3. 目标：帧时间从 50ms 降到 16ms 以下
+4. 写一份完整的优化报告</p>
+</blockquote>
+<h4 id="每周案例分享">每周案例分享</h4>
+<p>导师每周分享一个自己实际做过的优化案例，完整走一遍：
+1. <strong>现象</strong>：用户反馈/QA 报了什么（"这个场景在 iPhone 8 上只有 15fps"）
+2. <strong>假设</strong>：初步判断是什么问题
+3. <strong>Profile</strong>：打开什么工具，看到了什么数据
+4. <strong>定位</strong>：数据指向哪个函数/哪个资源
+5. <strong>修复</strong>：改了哪些代码、为什么这样改
+6. <strong>验证</strong>：优化前后的数据对比</p>
+<hr />
+<h3 id="第三阶段-项目实战-shadow-模式-第-3-6-个月">第三阶段：项目实战 — Shadow 模式（第 3-6 个月）</h3>
+<p><strong>目标</strong>：独立负责小模块优化</p>
+<h4 id="shadow-导师制">Shadow 导师制</h4>
+<p>你（导师）做优化时，新人坐在旁边看（或屏幕共享）。你边做边解释你的思考过程：</p>
+<ul>
+<li>"我先看 CPU 还是 GPU？——因为这个场景是室内小场景，大概率 CPU Bound"</li>
+<li>"为什么先调这个参数？——因为它影响面最广，一个修改能验证我的假设"</li>
+<li>"为什么不动那个函数？——虽然它耗时多，但它是第三方库，改不了"</li>
+</ul>
+<h4 id="分配真实任务">分配真实任务</h4>
+<p>选一个真实的性能 Bug（比如"这个 UI 界面的 Draw Call 超过 200"），让新人独立排查修复。要求：
+- 3 天内给出优化方案
+- 方案必须包含 Profiler 截图和数据支撑
+- 改完要做回归测试（不能引入视觉 Bug）</p>
+<h4 id="建立文档文化">建立文档文化</h4>
+<p>每次优化完成后，要求写技术文档：</p>
+<div class="codehilite"><pre><span></span><code><span class="gu">## 优化：XXX 场景 Draw Call 优化</span>
+
+<span class="gu">### 问题</span>
+XXX 场景 Draw Call 210，帧时间 22ms
+
+<span class="gu">### 排查过程</span>
+<span class="k">1.</span> Frame Debugger 发现 80% Draw Call 来自 UI Text
+<span class="k">2.</span> 这些 Text 使用了不同字体材质，打断了合批
+
+<span class="gu">### 修复</span>
+将字体统一为同一材质，启用 Sprite Atlas
+
+<span class="gu">### 验证</span>
+<span class="k">-</span><span class="w"> </span>优化前：Draw Call 210，帧时间 22ms
+<span class="k">-</span><span class="w"> </span>优化后：Draw Call 45，帧时间 14ms
+</code></pre></div>
+
+<hr />
+<h3 id="第四阶段-独立成长-第-6-12-个月">第四阶段：独立成长（第 6-12 个月）</h3>
+<table>
+<thead>
+<tr>
+<th>行动</th>
+<th>具体内容</th>
+<th>产出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>独立负责子系统</strong></td>
+<td>把"所有 UI 的合批优化"或"所有场景的 LOD 配置"交给他</td>
+<td>全局帧率提升数据</td>
+</tr>
+<tr>
+<td><strong>跨团队协作</strong></td>
+<td>让他去和美术/TA 沟通资源规范——很多时候性能问题的根因在资源制作阶段</td>
+<td>资源制作规范文档</td>
+</tr>
+<tr>
+<td><strong>阅读引擎源码</strong></td>
+<td>开始阅读 Unity（部分开源）或 Unreal 源码，理解渲染管线的底层实现</td>
+<td>源码阅读笔记</td>
+</tr>
+<tr>
+<td><strong>技术分享</strong></td>
+<td>每季度在团队内做一次技术分享，教别人是最好的学习方式</td>
+<td>分享 PPT + 录制</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="第五阶段-突破瓶颈-1-年以上">第五阶段：突破瓶颈（1 年以上）</h3>
+<ul>
+<li><strong>架构视野</strong>：开始关注架构层面的性能（ECS 改造、渲染管线重构），而不是单个函数的优化</li>
+<li><strong>性能自动化</strong>：搭建 CI 中的性能回归测试（"这个 PR 导致了帧率下降 2ms，禁止合入"）</li>
+<li><strong>性能直觉</strong>：培养"数据嗅觉"——看一眼 Profiler 数据就能快速判断问题方向</li>
+<li><strong>技术影响力</strong>：输出博客/演讲/开源项目，建立行业影响力</li>
+</ul>
+<hr />
+<h2 id="三、给导师的核心心法">三、给导师的核心心法</h2>
+<blockquote>
+<p>最好的教学不是"告诉他答案"，而是"教他找到答案的方法"。</p>
+</blockquote>
+<h3 id="三条黄金法则">三条黄金法则</h3>
+<ol>
+<li><strong>问 &gt; 答</strong>
+   他问你"为什么这个场景慢"时，不要直接说答案。问他：</li>
+<li>"你看了 Profiler 吗？是 CPU 还是 GPU 瓶颈？"</li>
+<li>"哪个函数耗时最多？"</li>
+<li>"你怀疑是什么原因？"</li>
+</ol>
+<p>逼他走完"假设→验证→结论"的完整流程。</p>
+<ol>
+<li>
+<p><strong>允许犯错（在安全范围内）</strong>
+   让他在开发环境把帧率搞崩，再自己修回来。踩过坑的记忆比任何讲解都深刻。</p>
+</li>
+<li>
+<p><strong>文档是第一产出物</strong>
+   要求每次优化都写文档——这既是他的成长轨迹，也是团队的财富。口头经验会流失，文档永远在。</p>
+</li>
+</ol>
+<h3 id="常见的-新人误区-及如何纠正">常见的"新人误区"及如何纠正</h3>
+<table>
+<thead>
+<tr>
+<th>新人常犯的错误</th>
+<th>导师怎么做</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"我觉得慢是因为 Draw Call 太多"</td>
+<td>"你关了阴影再看帧率变不变？——用数据说话，不要猜"</td>
+</tr>
+<tr>
+<td>优化了一个不热的函数，沾沾自喜</td>
+<td>"你知道这个函数一帧只被调用一次吗？看 Timeline 的宽度，不是看绝对数字"</td>
+</tr>
+<tr>
+<td>改了代码但没验证视觉正确性</td>
+<td>"优化不是目的，游戏好玩才是。你把那个角色的皮肤搞没了"</td>
+</tr>
+<tr>
+<td>觉得"加个缓存就能解决问题"</td>
+<td>"缓存失效的代价你算过吗？多一个 Dictionary 查找可能比重新计算还慢"</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四、推荐资源清单">四、推荐资源清单</h2>
+<h3 id="书籍">书籍</h3>
+<table>
+<thead>
+<tr>
+<th>书名</th>
+<th>重点章节</th>
+<th>阶段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>《深入理解计算机系统》(CSAPP)</td>
+<td>第 5-6 章（优化程序性能、存储器层次结构）</td>
+<td>第一阶段必读</td>
+</tr>
+<tr>
+<td>《游戏引擎架构》</td>
+<td>第 10 章（渲染引擎）、第 17 章（多线程）</td>
+<td>第一到三阶段</td>
+</tr>
+<tr>
+<td>《Real-Time Rendering》</td>
+<td>全书的渲染管线部分</td>
+<td>第二到四阶段</td>
+</tr>
+<tr>
+<td>《C++ Concurrency in Action》</td>
+<td>无锁编程、内存模型</td>
+<td>第三阶段+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="经典文章">经典文章</h3>
+<ul>
+<li><strong>"What Every Programmer Should Know About Memory"</strong> — Ulrich Drepper（红帽），关于内存系统的经典长文</li>
+<li><strong>"Latency Numbers Every Programmer Should Know"</strong> — 每年更新的延迟数字参考</li>
+<li><strong>Valve 的 "Source Multiplayer Networking"</strong> — 延迟补偿和客户端预测的经典讲解</li>
+<li><strong>"Fix Your Timestep!"</strong> — Glenn Fiedler，游戏循环的权威参考</li>
+</ul>
+<h3 id="在线资源">在线资源</h3>
+<ul>
+<li><strong>GDC Vault</strong> — 每年 GDC 的性能优化演讲，很多免费</li>
+<li><strong>Unity Blog</strong> — 官方性能优化系列</li>
+<li><strong>@SebAaltonen</strong> (Twitter/X) — 前 Ubisoft 渲染工程师，频繁分享底层优化细节</li>
+<li><strong>The r/GraphicsProgramming subreddit</strong> — 图形学/引擎开发社区</li>
+</ul>
+<hr />
+<p><em>这份指南会持续更新。性能优化是一个"永远在路上"的领域——新的硬件、新的 API、新的技术栈不断涌现。保持好奇心，保持饥渴，保持对数据的敬畏。</em></p>
+</main>
+</body>
+</html>

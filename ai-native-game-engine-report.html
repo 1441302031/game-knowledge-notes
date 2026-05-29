@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · ai-native-game-engine-report</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#ai-native-游戏引擎生态调研报告-2024-2025">AI Native 游戏引擎生态调研报告 (2024-2025)</a></li>
+<li style="margin-left:12px"><a href="#一、什么是-ai-native-游戏引擎">一、什么是 AI Native 游戏引擎</a></li>
+<li style="margin-left:12px"><a href="#二、国际主要项目">二、国际主要项目</a></li>
+<li style="margin-left:12px"><a href="#三、四大技术路线深度对比">三、四大技术路线深度对比</a></li>
+<li style="margin-left:12px"><a href="#四、中国国内生态">四、中国国内生态</a></li>
+<li style="margin-left:12px"><a href="#五、开源状态">五、开源状态</a></li>
+<li style="margin-left:12px"><a href="#六、关键时间线">六、关键时间线</a></li>
+<li style="margin-left:12px"><a href="#七、趋势与展望">七、趋势与展望</a></li>
+<li style="margin-left:12px"><a href="#八、对-ares-的启示">八、对 Ares 的启示</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="ai-native-游戏引擎生态调研报告-2024-2025">AI Native 游戏引擎生态调研报告 (2024-2025)</h1>
+<blockquote>
+<p>调研时间：2026年5月
+涵盖范围：全球及中国主要 AI 原生游戏引擎项目</p>
+</blockquote>
+<hr />
+<h2 id="一、什么是-ai-native-游戏引擎">一、什么是 AI Native 游戏引擎</h2>
+<p><strong>AI Native 游戏引擎</strong>（也称神经游戏引擎 / 扩散游戏引擎）是指完全或主要基于神经网络模型生成实时交互式游戏画面的引擎系统。与传统引擎（Unity/Unreal）手工编写渲染管线不同，AI 原生引擎利用扩散模型、自回归模型或世界模型，直接根据玩家输入预测下一帧画面。</p>
+<p>2024-2025 年是该领域的爆发期——从 GameNGen 首次验证可行性，到 Oasis 成为首个面向大众的可玩产品，技术路线逐渐清晰。</p>
+<hr />
+<h2 id="二、国际主要项目">二、国际主要项目</h2>
+<h3 id="2-1-gamengen-首个纯神经游戏引擎">2.1 GameNGen — 首个纯神经游戏引擎</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>Google Research / DeepMind</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2024年8月</td>
+</tr>
+<tr>
+<td>论文</td>
+<td><a href="https://arxiv.org/abs/2408.14837">arXiv:2408.14837</a></td>
+</tr>
+<tr>
+<td>官网</td>
+<td><a href="https://gamengen.github.io/">gamengen.github.io</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>❌ 未开源</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：潜在空间扩散模型 + 自回归生成</p>
+<ul>
+<li>两阶段训练：RL-agent 玩游戏记录数据 → 扩散模型基于历史帧+动作预测下一帧</li>
+<li>基于 Stable Diffusion 1.4 微调，在单块 TPU-v5 上达 20 FPS</li>
+<li>DOOM 验证：PSNR 29.4，人类评估者难以区分真实与模拟</li>
+</ul>
+<h3 id="2-2-genie-系列-从-2d-到照片级-3d">2.2 Genie 系列 — 从 2D 到照片级 3D</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>Google DeepMind</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>Genie 1: 2024.2 / Genie 2: 2024.12 / Genie 3: 2025.8</td>
+</tr>
+<tr>
+<td>论文</td>
+<td><a href="https://arxiv.org/abs/2402.15391">arXiv:2402.15391</a></td>
+</tr>
+<tr>
+<td>官网</td>
+<td><a href="https://deepmind.google/models/genie/">deepmind.google/models/genie</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>❌ 未开源</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：自回归 Transformer + 潜在动作空间 + 视频分词</p>
+<ul>
+<li><strong>Genie 1 (11B)</strong>：从无标签互联网视频学习，三组件架构（视频分词器 + 自回归动态模型 + 潜在动作模型）</li>
+<li><strong>Genie 2</strong>：3D 世界生成，更好的空间一致性</li>
+<li><strong>Genie 3</strong>：文本生成照片级逼真可探索 3D 环境，实时响应</li>
+</ul>
+<h3 id="2-3-oasis-首个可玩-ai-原生游戏">2.3 Oasis — 首个可玩 AI 原生游戏</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>Decart AI + Etched</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2024年10月</td>
+</tr>
+<tr>
+<td>官网</td>
+<td><a href="https://oasis.decart.ai/">oasis.decart.ai</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>❌ 未开源（在线 Demo 可玩）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：Transformer 自回归视频生成 + 专用推理芯片加速</p>
+<ul>
+<li>实时 AI 生成的 Minecraft 类游戏，键盘/鼠标 → 神经网络 → 下一帧</li>
+<li>由 Etched <strong>Sohu</strong> 专用 Transformer 芯片提供算力</li>
+<li>标志 AI 原生游戏从论文到产品的跨越</li>
+</ul>
+<h3 id="2-4-microsoft-muse-wham-世界与人类行为模型">2.4 Microsoft Muse / WHAM — 世界与人类行为模型</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>Microsoft Research + Xbox</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2025年初</td>
+</tr>
+<tr>
+<td>官网</td>
+<td><a href="https://www.microsoft.com/en-us/research/project/world-and-human-action-model-wham/">WHAM Project</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>❌ 未开源</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：世界模型 + 行为建模</p>
+<ul>
+<li>根据游戏画面和手柄输入预测后续画面</li>
+<li>定位为<strong>辅助游戏开发</strong>工具（快速原型、测试场景）</li>
+<li>不同于 GameNGen 的完全替代路线</li>
+</ul>
+<h3 id="2-5-gamegan-ai-游戏引擎先驱">2.5 GameGAN — AI 游戏引擎先驱</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>NVIDIA Research</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2020年5月 (CVPR 2020)</td>
+</tr>
+<tr>
+<td>论文</td>
+<td><a href="https://arxiv.org/abs/2005.12126">arXiv:2005.12126</a></td>
+</tr>
+<tr>
+<td>代码</td>
+<td><a href="https://github.com/nv-tlabs/GameGAN_code">github.com/nv-tlabs/GameGAN_code</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>✅ MIT License</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：条件 GAN + 循环记忆模块 + 静态/动态解耦</p>
+<ul>
+<li>三模块架构：动态引擎 + 记忆模块 + 解耦模块</li>
+<li>在 PAC-MAN 和 VizDoom 上验证</li>
+<li>比 GameNGen 早 4 年，奠定了神经模拟游戏环境的基础</li>
+</ul>
+<h3 id="2-6-diamond-扩散世界模型">2.6 DIAMOND — 扩散世界模型</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>IRIT/Université de Toulouse 等</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2024年5月</td>
+</tr>
+<tr>
+<td>代码</td>
+<td><a href="https://github.com/eloialonso/diamond">github.com/eloialonso/diamond</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>✅ 开源</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技术路线</strong>：扩散世界模型 + 强化学习</p>
+<ul>
+<li>在像素空间中预测未来帧，结合 actor-critic 策略</li>
+<li>在 Atari 基准上训练 RL agent</li>
+<li>Dreamer 系列思路的扩散版本</li>
+</ul>
+<h3 id="2-7-nvidia-cosmos-世界基础模型平台">2.7 NVIDIA Cosmos — 世界基础模型平台</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>机构</td>
+<td>NVIDIA</td>
+</tr>
+<tr>
+<td>时间</td>
+<td>2025年1月 (CES 2025)</td>
+</tr>
+<tr>
+<td>官网</td>
+<td><a href="https://developer.nvidia.com/cosmos">developer.nvidia.com/cosmos</a></td>
+</tr>
+<tr>
+<td>开源</td>
+<td>⚠️ 部分开源</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>面向物理 AI 和机器人，游戏/模拟是核心应用场景</li>
+<li>包含先进 tokenizer、guardrails 和加速数据处理管线</li>
+<li><strong>技术路线</strong>：大规模世界基础模型 + 物理推理</li>
+</ul>
+<h3 id="2-8-其他学术项目">2.8 其他学术项目</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>方向</th>
+<th>技术路线</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Matrix-Game 2.0</strong></td>
+<td>开源实时流式交互世界模型</td>
+<td>自回归视频生成 + 实时流式</td>
+</tr>
+<tr>
+<td><strong>MultiGen</strong></td>
+<td>扩散引擎中的关卡设计</td>
+<td>扩散模型 + 可控关卡生成</td>
+</tr>
+<tr>
+<td><strong>WorldCam</strong></td>
+<td>相机姿态驱动的 3D 游戏世界</td>
+<td>自回归 + 3D 几何表示</td>
+</tr>
+<tr>
+<td><strong>Vid2World</strong></td>
+<td>视频扩散转交互世界</td>
+<td>Video Diffusion → Interactive</td>
+</tr>
+<tr>
+<td><strong>SCOPE</strong></td>
+<td>跨游戏 FPS 世界模型</td>
+<td>Cross-game World Model</td>
+</tr>
+<tr>
+<td><strong>PAN</strong></td>
+<td>通用可交互长时程世界模拟</td>
+<td>General World Model</td>
+</tr>
+<tr>
+<td><strong>ReactiveGWM</strong></td>
+<td>世界模型中的 NPC 操控</td>
+<td>Reactive NPC</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="三、四大技术路线深度对比">三、四大技术路线深度对比</h2>
+<h3 id="路线-1-神经渲染-diffusion-based-neural-rendering">路线 1：神经渲染（Diffusion-based Neural Rendering）</h3>
+<p><strong>核心思想</strong>：用扩散模型替代传统渲染管线，每帧都是 AI "画"出来的。</p>
+<table>
+<thead>
+<tr>
+<th>代表项目</th>
+<th>核心架构</th>
+<th>实时性</th>
+<th>优势</th>
+<th>挑战</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GameNGen</td>
+<td>SD 1.4 改造 + 自回归</td>
+<td>20 FPS (TPU)</td>
+<td>画面质量高</td>
+<td>多步去噪耗时</td>
+</tr>
+<tr>
+<td>DIAMOND</td>
+<td>扩散世界模型</td>
+<td>离线</td>
+<td>训练稳定</td>
+<td>推理慢</td>
+</tr>
+<tr>
+<td>MultiGen</td>
+<td>扩散 + 关卡控制</td>
+<td>-</td>
+<td>内容可编辑</td>
+<td>3D 一致性弱</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键技术栈</strong>：
+- Stable Diffusion / Latent Diffusion Models → 潜空间去噪
+- Distillation + INT8/FP16 量化 → 实时推理
+- ControlNet / IP-Adapter → 动作条件控制
+- Teacher-Student 训练 → 数据收集</p>
+<h3 id="路线-2-世界模型-world-models">路线 2：世界模型（World Models）</h3>
+<p><strong>核心思想</strong>：学习环境的内部状态表示和动态转移规律，而非直接生成像素。</p>
+<table>
+<thead>
+<tr>
+<th>代表项目</th>
+<th>核心架构</th>
+<th>实时性</th>
+<th>优势</th>
+<th>挑战</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Oasis</td>
+<td>Transformer + Sohu 芯片</td>
+<td>20 FPS</td>
+<td>可实时互动</td>
+<td>专用硬件依赖</td>
+</tr>
+<tr>
+<td>Genie 系列</td>
+<td>Video Tokenizer + Dynamics + LAM</td>
+<td>实时</td>
+<td>3D一致性高</td>
+<td>训练数据需求大</td>
+</tr>
+<tr>
+<td>Muse/WHAM</td>
+<td>World + Action Model</td>
+<td>实时</td>
+<td>辅助开发</td>
+<td>封闭生态</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键技术栈</strong>：
+- <strong>RSSM / Transformer dynamics</strong> → latent space 状态转移
+- <strong>VQ-VAE / VQ-GAN</strong> → 像素压缩为离散 token
+- <strong>3D-aware 表示</strong> → Triplane / Gaussian Splatting
+- <strong>专用硬件</strong> → Etched Sohu (transformer-only ASIC)</p>
+<h3 id="路线-3-ai-copilot-辅助传统引擎">路线 3：AI Copilot（辅助传统引擎）</h3>
+<p><strong>核心思想</strong>：不替代传统引擎，用 AI 加速开发的各环节。</p>
+<table>
+<thead>
+<tr>
+<th>代表产品</th>
+<th>机构</th>
+<th>能力</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unity Muse</strong></td>
+<td>Unity</td>
+<td>Chat/Sprite/Texture/Behavior 生成</td>
+</tr>
+<tr>
+<td><strong>Inworld AI</strong></td>
+<td>Inworld</td>
+<td>AI NPC 引擎（对话+情感+行为）</td>
+</tr>
+<tr>
+<td><strong>Convai</strong></td>
+<td>Convai</td>
+<td>实时语音交互 NPC</td>
+</tr>
+<tr>
+<td><strong>Meshy.ai</strong></td>
+<td>Meshy</td>
+<td>Text-to-3D 资产生成</td>
+</tr>
+<tr>
+<td><strong>Scenario.gg</strong></td>
+<td>Scenario</td>
+<td>风格一致性游戏资产生成</td>
+</tr>
+<tr>
+<td><strong>Ludo.ai</strong></td>
+<td>Ludo</td>
+<td>AI 游戏创意和设计文档</td>
+</tr>
+</tbody>
+</table>
+<h3 id="路线-4-多模态生成-video-to-interactive">路线 4：多模态生成（Video-to-Interactive）</h3>
+<p><strong>核心思想</strong>：从文本/图像/视频直接生成交互式游戏体验。</p>
+<table>
+<thead>
+<tr>
+<th>代表项目</th>
+<th>机构</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sora</strong></td>
+<td>OpenAI</td>
+<td>DiT 架构，emergent 3D 一致性</td>
+</tr>
+<tr>
+<td><strong>Veo 2</strong></td>
+<td>Google DeepMind</td>
+<td>4K 视频生成，物理规律理解</td>
+</tr>
+<tr>
+<td><strong>Kling</strong></td>
+<td>快手</td>
+<td>3D VAE + DiT，物理合理性突出</td>
+</tr>
+<tr>
+<td><strong>World Labs</strong></td>
+<td>Fei-Fei Li</td>
+<td>空间智能，图像→可探索 3D 世界</td>
+</tr>
+</tbody>
+</table>
+<h3 id="四路线总结">四路线总结</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>①神经渲染</th>
+<th>②世界模型</th>
+<th>③AI Copilot</th>
+<th>④多模态生成</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目标</td>
+<td>替代渲染管线</td>
+<td>学习环境动态</td>
+<td>加速传统开发</td>
+<td>端到端体验生成</td>
+</tr>
+<tr>
+<td>实时性</td>
+<td>追求实时</td>
+<td>追求实时</td>
+<td>N/A</td>
+<td>目前多为离线</td>
+</tr>
+<tr>
+<td>可控性</td>
+<td>中（动作条件）</td>
+<td>高（结构化状态）</td>
+<td>高（人工主导）</td>
+<td>低（提示词驱动）</td>
+</tr>
+<tr>
+<td>3D 一致性</td>
+<td>弱</td>
+<td>强</td>
+<td>N/A</td>
+<td>中</td>
+</tr>
+<tr>
+<td>成熟度</td>
+<td>实验阶段</td>
+<td>研究阶段</td>
+<td>已产品化</td>
+<td>早期研究</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四、中国国内生态">四、中国国内生态</h2>
+<h3 id="4-1-腾讯-全栈自研-开源">4.1 腾讯 — 全栈自研 + 开源</h3>
+<table>
+<thead>
+<tr>
+<th>项目/品牌</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GiiNEX</strong></td>
+<td>腾讯 AI 游戏引擎统一品牌（2024），覆盖策划/美术/程序/测试全流程</td>
+</tr>
+<tr>
+<td><strong>GameGen-O</strong></td>
+<td>联合港科大/中科院的开放世界游戏视频生成模型，DiT 架构，支持交互式控制</td>
+</tr>
+<tr>
+<td><strong>混元大模型</strong></td>
+<td>自研基础模型，已深度整合游戏管线</td>
+</tr>
+<tr>
+<td><strong>Hunyuan3D</strong></td>
+<td>开源文本到 3D 模型生成系统</td>
+</tr>
+<tr>
+<td><strong>ArtFlow</strong></td>
+<td>AI 美术生成工具</td>
+</tr>
+<tr>
+<td><strong>绝悟 AI</strong></td>
+<td>《王者荣耀》深度强化学习 AI，MOBA 类标杆</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-2-网易-ai-与内容融合">4.2 网易 — AI 与内容融合</h3>
+<table>
+<thead>
+<tr>
+<th>项目/品牌</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>网易伏羲</strong></td>
+<td>成立于 2017 年，国内最早系统性布局游戏 AI 的实验室</td>
+</tr>
+<tr>
+<td><strong>《逆水寒》手游</strong></td>
+<td>首个大规模落地 AI NPC 的 MMO——自由对话、记忆系统、情感系统</td>
+</tr>
+<tr>
+<td><strong>伏羲 AI 引擎</strong></td>
+<td>NPC 对话、智能捏脸、AI 作曲、关卡生成等</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-3-米哈游-低调的内容驱动">4.3 米哈游 — 低调的内容驱动</h3>
+<table>
+<thead>
+<tr>
+<th>方向</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>逆熵 AI</strong></td>
+<td>内部 AI 研究团队，聚焦大模型和 AIGC</td>
+</tr>
+<tr>
+<td><strong>Glossa</strong></td>
+<td>自研大语言模型，用于角色对话和剧情生成</td>
+</tr>
+<tr>
+<td><strong>脑机接口</strong></td>
+<td>与瑞金医院合作，前沿方向探索</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-4-字节跳动">4.4 字节跳动</h3>
+<table>
+<thead>
+<tr>
+<th>方向</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>豆包大模型</strong></td>
+<td>已集成游戏开发工具</td>
+</tr>
+<tr>
+<td><strong>即创 / Jimeng AI</strong></td>
+<td>AI 创作平台（视频/图像生成）</td>
+</tr>
+<tr>
+<td><strong>AnimateDiff</strong></td>
+<td>开源动画生成模型</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-5-创业公司">4.5 创业公司</h3>
+<table>
+<thead>
+<tr>
+<th>公司</th>
+<th>方向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>超参数科技</strong></td>
+<td>游戏 AI Bot（王者/和平精英）</td>
+</tr>
+<tr>
+<td><strong>启元世界</strong></td>
+<td>通用游戏 AI 平台</td>
+</tr>
+<tr>
+<td><strong>MiniMax</strong></td>
+<td>大模型 + 视频生成</td>
+</tr>
+<tr>
+<td><strong>VAST/万生华智</strong></td>
+<td>3D 生成大模型 Tripo</td>
+</tr>
+<tr>
+<td><strong>Meshy/狸谱</strong></td>
+<td>AI 3D 模型生成</td>
+</tr>
+<tr>
+<td><strong>影眸科技</strong></td>
+<td>3D 数字人/角色生成</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="五、开源状态">五、开源状态</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>开源</th>
+<th>代码/地址</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GameGAN</td>
+<td>✅</td>
+<td><a href="https://github.com/nv-tlabs/GameGAN_code">github.com/nv-tlabs/GameGAN_code</a></td>
+</tr>
+<tr>
+<td>DIAMOND</td>
+<td>✅</td>
+<td><a href="https://github.com/eloialonso/diamond">github.com/eloialonso/diamond</a></td>
+</tr>
+<tr>
+<td>Matrix-Game 2.0</td>
+<td>✅</td>
+<td>学术开源</td>
+</tr>
+<tr>
+<td>GameNGen</td>
+<td>❌</td>
+<td>仅论文</td>
+</tr>
+<tr>
+<td>Genie 系列</td>
+<td>❌</td>
+<td>仅论文和 API</td>
+</tr>
+<tr>
+<td>Oasis</td>
+<td>❌</td>
+<td>在线 Demo</td>
+</tr>
+<tr>
+<td>Muse/WHAM</td>
+<td>❌</td>
+<td>内部项目</td>
+</tr>
+<tr>
+<td>NVIDIA Cosmos</td>
+<td>⚠️</td>
+<td>模型权重开放</td>
+</tr>
+<tr>
+<td>Hunyuan3D</td>
+<td>✅</td>
+<td>腾讯开源</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="六、关键时间线">六、关键时间线</h2>
+<table>
+<thead>
+<tr>
+<th>时间</th>
+<th>事件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2020.05</td>
+<td>NVIDIA 发布 GameGAN (CVPR 2020)</td>
+</tr>
+<tr>
+<td>2024.02</td>
+<td>DeepMind 发布 Genie 1 (11B foundation world model)</td>
+</tr>
+<tr>
+<td>2024.05</td>
+<td>DIAMOND 扩散世界模型论文</td>
+</tr>
+<tr>
+<td>2024.08</td>
+<td><strong>GameNGen</strong> — 首个纯神经游戏引擎</td>
+</tr>
+<tr>
+<td>2024.10</td>
+<td><strong>Oasis</strong> — 首个可玩 AI 原生游戏</td>
+</tr>
+<tr>
+<td>2024.12</td>
+<td>DeepMind 发布 Genie 2（3D 世界）</td>
+</tr>
+<tr>
+<td>2025.01</td>
+<td>NVIDIA 发布 Cosmos 世界基础模型</td>
+</tr>
+<tr>
+<td>2025.初</td>
+<td>Microsoft 发布 Muse/WHAM</td>
+</tr>
+<tr>
+<td>2025.08</td>
+<td>DeepMind 发布 Genie 3（照片级实时 3D）</td>
+</tr>
+<tr>
+<td>2024-2025</td>
+<td>MultiGen、WorldCam、Matrix-Game 等学术项目涌现</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="七、趋势与展望">七、趋势与展望</h2>
+<ol>
+<li><strong>2D → 3D 演进</strong>：Genie 系列完整展示了从 2D 平台 → 3D 世界 → 照片级 3D 的技术路径</li>
+<li><strong>学术 → 产品化</strong>：Oasis 首次将 AI 原生游戏带给大众</li>
+<li><strong>硬件协同设计</strong>：Etched Sohu 芯片为 AI 引擎提供专用算力，软硬一体成趋势</li>
+<li><strong>世界模型融合</strong>：AI 游戏引擎与机器人/自动驾驶的世界模型研究日益融合</li>
+<li><strong>实时性突破</strong>：从 GameNGen 的实验室 20 FPS 到 Oasis 的在线可玩</li>
+<li><strong>国内大厂全栈布局</strong>：腾讯 GiiNEX、网易伏羲定位为 AI 游戏全流程引擎</li>
+<li><strong>AI NPC 最先落地</strong>：《逆水寒》手游验证了 C 端接受度</li>
+<li><strong>3D 资产生成爆发</strong>：Hunyuan3D、Tripo、Meshy 等项目密集涌现</li>
+</ol>
+<hr />
+<h2 id="八、对-ares-的启示">八、对 Ares 的启示</h2>
+<ol>
+<li><strong>短期务实</strong>：AI Copilot 路线（路线③）最成熟，可集成 LLM 辅助 NPC 对话、代码生成</li>
+<li><strong>中期布局</strong>：关注世界模型路线（路线②），Oasis 已验证 Transformer + 专用硬件的可行性</li>
+<li><strong>长期跟踪</strong>：GameNGen 代表的神经渲染（路线①）一旦突破实时瓶颈，将颠覆引擎范式</li>
+<li><strong>中国特色</strong>：国内大厂走"AI 全流程引擎 + 自研游戏验证"闭环，与海外"平台化输出"形成差异</li>
+<li><strong>开源红利</strong>：Hunyuan3D、DIAMOND、GameGAN 等可复用的开源项目值得关注</li>
+</ol>
+<hr />
+<p><em>报告整理日期：2026年5月28日</em>
+<em>数据来源：arXiv 论文、项目官网、新闻报道</em></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · piccolo-learning-report</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#piccolo-引擎学习报告-ai-native-引擎建设">Piccolo 引擎学习报告 → AI Native 引擎建设</a></li>
+<li style="margin-left:12px"><a href="#一、piccolo-架构总览">一、Piccolo 架构总览</a></li>
+<li style="margin-left:12px"><a href="#二、可迁移模式-6大核心">二、可迁移模式（6大核心）</a></li>
+<li style="margin-left:12px"><a href="#三、需要抛弃的">三、需要抛弃的</a></li>
+<li style="margin-left:12px"><a href="#四、piccolo-社区反馈的价值发现">四、Piccolo 社区反馈的价值发现</a></li>
+<li style="margin-left:12px"><a href="#五、迁移路径-从-piccolo-到-ai-native-引擎">五、迁移路径：从 Piccolo 到 AI Native 引擎</a></li>
+<li style="margin-left:12px"><a href="#六、关键结论">六、关键结论</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="piccolo-引擎学习报告-ai-native-引擎建设">Piccolo 引擎学习报告 → AI Native 引擎建设</h1>
+<blockquote>
+<p>学习对象：<a href="https://github.com/BoomingTech/Piccolo">Piccolo Engine</a>（GAMES104 课程引擎）
+目标：提取可迁移的架构模式，指导 AI Native 游戏引擎建设</p>
+<p>核心理念："麻雀虽小，五脏俱全" — 用最小代码量覆盖完整引擎管线</p>
+</blockquote>
+<hr />
+<h2 id="一、piccolo-架构总览">一、Piccolo 架构总览</h2>
+<h3 id="1-1-核心分层">1.1 核心分层</h3>
+<div class="codehilite"><pre><span></span><code>PiccoloEditor (ImGui GUI 编辑器)
+        │  内嵌引擎运行时
+        ▼
+PiccoloEngine ← tickOneFrame() 主循环
+        │
+        ├─ RuntimeGlobalContext (服务定位器，持有所有子系统)
+        │
+        ├─ WorldManager → World → Level → GObject → Component
+        │   世界管理    关卡     游戏对象   组件
+        │
+        ├─ RenderSystem (Vulkan RHI → Deferred Pipeline → 多 Pass)
+        ├─ PhysicsManager (Jolt Physics)
+        ├─ AnimationManager (骨骼动画)
+        ├─ InputSystem / WindowSystem / ParticleManager
+        │
+        ├─ AssetManager (JSON 序列化 → 文件系统资源)
+        │
+        └─ MetaParser (libclang AST → Mustache → 反射/序列化代码生成)
+</code></pre></div>
+
+<h3 id="1-2-关键数据统计">1.2 关键数据统计</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代码量</td>
+<td>~3000 文件，核心运行时 ~200 文件</td>
+</tr>
+<tr>
+<td>语言</td>
+<td>C++17</td>
+</tr>
+<tr>
+<td>渲染后端</td>
+<td>Vulkan</td>
+</tr>
+<tr>
+<td>编辑器</td>
+<td>ImGui 自举</td>
+</tr>
+<tr>
+<td>物理</td>
+<td>Jolt Physics</td>
+</tr>
+<tr>
+<td>反射</td>
+<td>libclang + Mustache 代码生成</td>
+</tr>
+<tr>
+<td>资源格式</td>
+<td>JSON（全部资产）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="二、可迁移模式-6大核心">二、可迁移模式（6大核心）</h2>
+<h3 id="2-1-子系统架构-ai-tool-registry">2.1 子系统架构 → AI Tool Registry</h3>
+<p><strong>Piccolo 做法</strong>：<code>RuntimeGlobalContext</code> 作为单例服务定位器，持有所有子系统的 <code>shared_ptr</code>，按依赖顺序初始化。</p>
+<div class="codehilite"><pre><span></span><code>可迁移性：★★★★★ (100%)
+
+直接映射：
+  Piccolo: SystemManager::get&lt;RenderSystem&gt;()
+  AI Native: AIToolRegistry::get(&quot;render&quot;) → 暴露为 AI 可调用的 Tool
+</code></pre></div>
+
+<p>每个子系统天然可以暴露为 AI 的函数调用接口（Function Calling Schema）：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// AI Native 引擎中，每个子系统自动注册为 AI Tool</span>
+<span class="n">Engine</span><span class="p">.</span><span class="n">RegisterTool</span><span class="p">(</span><span class="s">&quot;render.set_material&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">entityId</span><span class="p">,</span><span class="w"> </span><span class="n">materialJson</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">});</span>
+<span class="n">Engine</span><span class="p">.</span><span class="n">RegisterTool</span><span class="p">(</span><span class="s">&quot;physics.raycast&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">origin</span><span class="p">,</span><span class="w"> </span><span class="n">direction</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">});</span>
+</code></pre></div>
+
+<h3 id="2-2-反射系统-ai-语义元数据">2.2 反射系统 → AI 语义元数据</h3>
+<p><strong>Piccolo 做法</strong>：编译期 libclang 解析 AST → Mustache 模板生成反射/序列化代码。</p>
+<div class="codehilite"><pre><span></span><code>可迁移性：★★★★★ (95%)
+
+这是连接传统引擎与 AI 的关键桥梁。
+</code></pre></div>
+
+<p>关键扩展方向：</p>
+<table>
+<thead>
+<tr>
+<th>Piccolo 原有</th>
+<th>AI Native 扩展</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REFLECT_PROPERTY(position)</code></td>
+<td><code>+ ai_description("世界坐标位置")</code></td>
+</tr>
+<tr>
+<td><code>serialize() / deserialize()</code></td>
+<td><code>+ ai_suggest()</code> 生成建议值</td>
+</tr>
+<tr>
+<td>类型枚举</td>
+<td><code>+ ai_related_components</code> 语义关联</td>
+</tr>
+<tr>
+<td>属性范围</td>
+<td><code>+ ai_constraint</code> 生成约束规则</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-3-组件模型-ai-的最小语义单元">2.3 组件模型 → AI 的最小语义单元</h3>
+<div class="codehilite"><pre><span></span><code>可迁移性：★★★★★ (100%)
+
+Component 是 AI 理解游戏世界的最小操作单位。
+TransformComponent → AI 的空间推理
+HealthComponent → AI 的战斗平衡计算
+DialogueComponent → AI 的叙事生成
+</code></pre></div>
+
+<h3 id="2-4-双缓冲数据交换-逻辑与-ai-线程安全">2.4 双缓冲数据交换 → 逻辑与 AI 线程安全</h3>
+<div class="codehilite"><pre><span></span><code>可迁移性：★★★★☆ (85%)
+
+Piccolo 的 RenderSwapContext 逻辑：
+  logicalTick() → 填充逻辑数据
+  swap() → 原子交换
+  rendererTick() → 消费渲染数据
+
+改造为 AI 调用模式：
+  游戏逻辑 → 填充 AI 请求队列
+  swap() → 交换
+  AI Worker → 异步处理 → 回写结果
+</code></pre></div>
+
+<h3 id="2-5-资产管线-prompt-驱动的生成管线">2.5 资产管线 → Prompt 驱动的生成管线</h3>
+<p><strong>Piccolo 做法</strong>：JSON 文件 → AssetManager.load() → Serializer.read() → 运行时数据。</p>
+<p><strong>改造后</strong>：</p>
+<div class="codehilite"><pre><span></span><code>传统:  .json 文件 → AssetManager → 运行时
+AI:    Prompt 字符串 → GenerationPipeline → 语义缓存 → 运行时
+       └── LineageTracker 记录生成谱系
+</code></pre></div>
+
+<h3 id="2-6-编辑器架构-开发者驾驶舱">2.6 编辑器架构 → 开发者驾驶舱</h3>
+<p>Piccolo 的编辑器是 ImGui 自举的。我们保留其中可复用的部分：</p>
+<table>
+<thead>
+<tr>
+<th>保留</th>
+<th>改造</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ViewportPanel（3D 视口）</td>
+<td>+ AI 操作可视化叠加层</td>
+</tr>
+<tr>
+<td>InspectorPanel（属性面板）</td>
+<td>+ 自然语言属性编辑</td>
+</tr>
+<tr>
+<td>ConsolePanel（日志）</td>
+<td>+ AI 可读错误解释</td>
+</tr>
+<tr>
+<td>—</td>
+<td>+ <strong>AI 对话面板</strong>（核心新增）</td>
+</tr>
+<tr>
+<td>—</td>
+<td>+ <strong>Diff Viewer</strong>（核心新增）</td>
+</tr>
+<tr>
+<td>—</td>
+<td>+ <strong>决策追溯面板</strong>（核心新增）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="三、需要抛弃的">三、需要抛弃的</h2>
+<table>
+<thead>
+<tr>
+<th>Piccolo 做法</th>
+<th>抛弃理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GUI 编辑器为中心</strong></td>
+<td>AI Native 范式是代码+对话+预览，GUI 是障碍</td>
+</tr>
+<tr>
+<td><strong>编译期类型注册</strong></td>
+<td>AI 生成的新类型需要在运行时动态注册</td>
+</tr>
+<tr>
+<td><strong>文件系统中心资源</strong></td>
+<td>Prompt→生成记录的管线替代文件→导入</td>
+</tr>
+<tr>
+<td><strong>静态单向数据流</strong></td>
+<td>AI Native 需要双向：引擎状态→AI分析→修改</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四、piccolo-社区反馈的价值发现">四、Piccolo 社区反馈的价值发现</h2>
+<h3 id="4-1-最大痛点-编译兼容性">4.1 最大痛点：编译兼容性</h3>
+<p>跨平台/编译器版本碎片化是持续困扰。→ AI Native 引擎应优先选择 Rust（统一工具链）。</p>
+<h3 id="4-2-最热技术讨论-反射系统">4.2 最热技术讨论：反射系统</h3>
+<p>很多人好奇 meta_parser（闭源部分）的实现。→ AI Native 引擎的反射系统应开源且设计为可扩展的。</p>
+<h3 id="4-3-最受期待演进-rhi-多后端">4.3 最受期待演进：RHI 多后端</h3>
+<p>Vulkan 单一后端 → 多后端抽象。→ AI Native 引擎直接选用 bgfx/WGPU（天然多后端）。</p>
+<h3 id="4-4-教学取舍">4.4 教学取舍</h3>
+<p>Piccolo 用 JSON 而非 glTF、用自研反射而非现有库，目的是"让学习者理解底层"。→ AI Native 引擎反之：用最成熟的库，聚焦上层创新（操控系统）。</p>
+<hr />
+<h2 id="五、迁移路径-从-piccolo-到-ai-native-引擎">五、迁移路径：从 Piccolo 到 AI Native 引擎</h2>
+<h3 id="phase-1-foundation-直接复用-2-3-月">Phase 1: Foundation（直接复用）— 2-3 月</h3>
+<div class="codehilite"><pre><span></span><code>□ 子系统架构 → 改造为 Rust trait 体系
+□ 反射系统 → 扩展为 AI 语义元数据
+□ 组件模型 → 保留 ECS，增加 AI 描述字段
+□ World/Level → 增加 fork() / diff() / lineage
+□ 渲染管线 → bgfx/WGPU 多后端
+</code></pre></div>
+
+<h3 id="phase-2-ai-integration-2-3-月">Phase 2: AI Integration — 2-3 月</h3>
+<div class="codehilite"><pre><span></span><code>□ AI Tool Registry（子系统 → AI Function Calling）
+□ Prompt → Code 翻译层
+□ LLM 叙事引擎集成（llama.cpp）
+□ 扩散精灵生成管线
+□ 最小可用的开发者驾驶舱
+</code></pre></div>
+
+<h3 id="phase-3-control-system-核心创新-2-3-月">Phase 3: Control System（核心创新）— 2-3 月</h3>
+<div class="codehilite"><pre><span></span><code>□ 粒度控制系统（全自动 → 微调的四档控制）
+□ 决策追溯（每次 AI 调用记录 Prompt + 推理 + 结果）
+□ Diff Engine（基于反射的可视化变更对比）
+□ 回滚/分支管理
+</code></pre></div>
+
+<h3 id="phase-4-production-2-3-月">Phase 4: Production — 2-3 月</h3>
+<div class="codehilite"><pre><span></span><code>□ 完整游戏系统（战斗/任务/物品）
+□ 性能优化
+□ 跨平台打包
+□ 开发者体验打磨
+</code></pre></div>
+
+<hr />
+<h2 id="六、关键结论">六、关键结论</h2>
+<ol>
+<li>
+<p><strong>Piccolo 证明了"麻雀引擎"的可行性</strong>：用最小代码量覆盖完整管线是可能的。</p>
+</li>
+<li>
+<p><strong>基础层可复用 60%</strong>：子系统架构、反射系统、组件模型几乎可以直接迁移（从 C++ 到 Rust 的重写，架构不变）。</p>
+</li>
+<li>
+<p><strong>反射系统是最关键的可复用资产</strong>：扩展为 AI 语义元数据后，它成为 AI 理解引擎数据模型的桥梁。</p>
+</li>
+<li>
+<p><strong>操控系统是从零设计的</strong>：Piccolo 没有这个层，但它借用了反射和序列化的基础设施来构建 Diff 引擎。</p>
+</li>
+<li>
+<p><strong>范式转换 &gt; 技术迁移</strong>：最大的挑战不是写代码，而是重新思考每个 API——"AI 会怎么调用它？"</p>
+</li>
+<li>
+<p><strong>Rust 替代 C++</strong>：Piccolo 社区最大的痛点是编译兼容性，Rust 统一工具链直接解决。</p>
+</li>
+</ol>
+<hr />
+<p><em>学习日期：2026年5月28日</em>
+<em>关联项目：<a href="https://github.com/1441302031/ares-framework">Ares Framework</a> | <a href="http://8.163.49.163:8666/ai-native-engine-manifesto.html">AI Native Engine Manifesto</a></em></p>
+</main>
+</body>
+</html>

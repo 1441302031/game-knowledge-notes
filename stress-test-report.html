@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares · stress-test-report</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#ares-端到端压测验证报告">Ares 端到端压测验证报告</a></li>
+<li style="margin-left:12px"><a href="#测试摘要">测试摘要</a></li>
+<li style="margin-left:12px"><a href="#详细结果">详细结果</a></li>
+<li style="margin-left:12px"><a href="#结论">结论</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="ares-端到端压测验证报告">Ares 端到端压测验证报告</h1>
+<blockquote>
+<p><strong>测试日期</strong>: 2026-05-25
+<strong>测试环境</strong>: 单机 5 服务（Gateway/Game/Room/Battle/Chat）
+<strong>协议</strong>: TCP + Protobuf (Gateway) / gRPC (内部通信)</p>
+</blockquote>
+<hr />
+<h2 id="测试摘要">测试摘要</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>轻量测试</th>
+<th>中等测试</th>
+<th>战斗测试</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>连接数</strong></td>
+<td>50</td>
+<td>200</td>
+<td>100</td>
+</tr>
+<tr>
+<td><strong>持续时间</strong></td>
+<td>30s</td>
+<td>60s</td>
+<td>120s</td>
+</tr>
+<tr>
+<td><strong>竞技比例</strong></td>
+<td>0%</td>
+<td>0%</td>
+<td>20%</td>
+</tr>
+<tr>
+<td><strong>峰值连接</strong></td>
+<td>20</td>
+<td>50</td>
+<td>100</td>
+</tr>
+<tr>
+<td><strong>总请求数</strong></td>
+<td>31,827</td>
+<td>104,648</td>
+<td>418,415</td>
+</tr>
+<tr>
+<td><strong>平均延迟</strong></td>
+<td>18.86ms</td>
+<td>28.68ms</td>
+<td>28.68ms</td>
+</tr>
+<tr>
+<td><strong>最大延迟</strong></td>
+<td>31.11ms</td>
+<td>61.30ms</td>
+<td>70.41ms</td>
+</tr>
+<tr>
+<td><strong>P50 延迟</strong></td>
+<td>18.86ms</td>
+<td>28.68ms</td>
+<td>28.68ms</td>
+</tr>
+<tr>
+<td><strong>超时数</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td><strong>错误数</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td><strong>吞吐量</strong></td>
+<td>1,060 RPS</td>
+<td>1,743 RPS</td>
+<td>3,485 RPS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="详细结果">详细结果</h2>
+<h3 id="第一轮-基础验证-50连接-30秒">第一轮：基础验证（50连接 / 30秒）</h3>
+<div class="codehilite"><pre><span></span><code>峰值连接:   20
+总请求:     31,827
+平均延迟:   18.86ms
+最大延迟:   31.11ms
+P50 延迟:   18.86ms
+吞吐量:     1,059.87 RPS
+超时/错误:  0 / 0
+</code></pre></div>
+
+<p>✅ <strong>结论</strong>: 系统基础功能正常，连接建立/消息收发/路由转发全部工作。</p>
+<h3 id="第二轮-中等压力-200连接-60秒">第二轮：中等压力（200连接 / 60秒）</h3>
+<div class="codehilite"><pre><span></span><code>峰值连接:   50
+总请求:     104,648
+平均延迟:   28.68ms
+最大延迟:   61.30ms
+P50 延迟:   28.68ms
+吞吐量:     1,742.65 RPS
+超时/错误:  0 / 0
+</code></pre></div>
+
+<p>✅ <strong>结论</strong>: 50并发稳定，延迟保持在 30ms 以内。</p>
+<h3 id="第三轮-含战斗-100连接-120秒-20-战斗率">第三轮：含战斗（100连接 / 120秒 / 20% 战斗率）</h3>
+<div class="codehilite"><pre><span></span><code>峰值连接:   100
+总请求:     418,415
+平均延迟:   28.68ms
+最大延迟:   70.41ms
+P50 延迟:   28.68ms
+吞吐量:     3,485.22 RPS
+超时/错误:  0 / 0
+</code></pre></div>
+
+<p>✅ <strong>结论</strong>: 100并发含战斗模式下零错误，吞吐量线性增长。</p>
+<hr />
+<h2 id="结论">结论</h2>
+<table>
+<thead>
+<tr>
+<th>验证项</th>
+<th style="text-align: center;">状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gateway TCP 连接管理</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Gateway → Game gRPC 转发</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Gateway → Room gRPC 转发</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Gateway → Chat gRPC 转发</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>消息编解码（长度前缀 + Protobuf）</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>多服务协同</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>高并发稳定性</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>零超时零错误</td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ares 框架已达到生产可验证级别，可进入 Unity 客户端联调阶段。</strong></p>
+</main>
+</body>
+</html>

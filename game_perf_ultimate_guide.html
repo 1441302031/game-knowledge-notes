@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>game_perf_ultimate_guide</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#游戏性能优化工程师-终极学习手册">📚 游戏性能优化工程师 — 终极学习手册</a></li>
+<li style="margin-left:12px"><a href="#目录">目录</a></li>
+<li style="margin-left:12px"><a href="#第〇部分-前置知识自检">第〇部分：前置知识自检</a></li>
+<li style="margin-left:12px"><a href="#第一部分-完整书单与学习路径">第一部分：完整书单与学习路径</a></li>
+<li style="margin-left:12px"><a href="#第二部分-电子书与在线资源汇总">第二部分：电子书与在线资源汇总</a></li>
+<li style="margin-left:12px"><a href="#第三部分-验收检测体系">第三部分：验收检测体系</a></li>
+<li style="margin-left:12px"><a href="#第四部分-每周实战训练计划">第四部分：每周实战训练计划</a></li>
+<li style="margin-left:12px"><a href="#第五部分-总时间线与里程碑">第五部分：总时间线与里程碑</a></li>
+<li style="margin-left:12px"><a href="#附录-a-给你的几条学习心法">附录 A：给你的几条学习心法</a></li>
+<li style="margin-left:12px"><a href="#附录-b-推荐学习节奏">附录 B：推荐学习节奏</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="游戏性能优化工程师-终极学习手册">📚 游戏性能优化工程师 — 终极学习手册</h1>
+<blockquote>
+<p>这份文档是你的私人导师。按路径走完，你将从"会用引擎写代码"进化到"理解计算机每一纳秒在做什么"。</p>
+</blockquote>
+<hr />
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#第〇部分前置知识自检">第〇部分：前置知识自检</a></li>
+<li><a href="#第一部分完整书单与学习路径">第一部分：完整书单与学习路径</a></li>
+<li><a href="#第二部分电子书与在线资源">第二部分：电子书与在线资源</a></li>
+<li><a href="#第三部分验收检测体系">第三部分：验收检测体系</a></li>
+<li><a href="#第四部分每周实战训练计划">第四部分：每周实战训练计划</a></li>
+<li><a href="#第五部分总时间线与里程碑">第五部分：总时间线与里程碑</a></li>
+</ul>
+<hr />
+<h2 id="第〇部分-前置知识自检">第〇部分：前置知识自检</h2>
+<p>在开始正式书单之前，先诚实地评估自己。<strong>如果某项不达标，先去补，不要跳过。</strong> 基础不牢的楼，盖得越高塌得越快。</p>
+<h3 id="自检清单">自检清单</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>领域</th>
+<th>最低要求</th>
+<th>自测方法</th>
+<th>补课资源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>C/C++ 基础</strong></td>
+<td>理解指针、引用、栈 vs 堆、<code>malloc</code> vs <code>new</code>、函数调用约定</td>
+<td>写一个简单的链表（不用 STL），不出内存泄漏</td>
+<td><a href="https://www.learncpp.com/">learncpp.com</a>（英文免费）或《C Primer Plus》</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>数据结构与算法</strong></td>
+<td>数组、链表、二叉树、哈希表的增删查复杂度脱口而出</td>
+<td>LeetCode Easy 能独立完成 10 道</td>
+<td>VisuAlgo.net（可视化）、《大话数据结构》</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>操作系统概念</strong></td>
+<td>知道进程/线程的区别、虚拟内存是什么、上下文切换有开销</td>
+<td>能解释"为什么多线程不一定比单线程快"</td>
+<td>《Modern Operating Systems》前 4 章</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>计算机组成原理</strong></td>
+<td>CPU 有 ALU、寄存器、缓存；知道指令周期（取指→译码→执行）</td>
+<td>能手画 CPU + 内存 + I/O 的连接图</td>
+<td>《编码》前半部分（见书单第 1 本）</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>线性代数</strong></td>
+<td>向量加减、点积叉积的几何意义、矩阵乘法、齐次坐标</td>
+<td>能手算两个 3×3 矩阵的乘积</td>
+<td>3Blue1Brown《线性代数的本质》YouTube 系列（中文翻译存在 B 站）</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Unity/Unreal 基础</strong></td>
+<td>能用引擎做出一个能跑的完整游戏 Demo</td>
+<td>至少做过一个从菜单到核心玩法的完整小游戏</td>
+<td>Unity Learn 官方免费教程</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>英语阅读能力</strong></td>
+<td>能无痛阅读英文技术文档</td>
+<td>大部分顶级的资料是英文的，包括很多 PDF 和论文</td>
+<td>不需要流利说/写，能读就行；用 DeepL 辅助翻译</td>
+</tr>
+</tbody>
+</table>
+<h3 id="如果多项不达标怎么办">如果多项不达标怎么办？</h3>
+<p>不要慌。<strong>前置知识本身也是一个学习阶段。</strong> 按这个顺序补：</p>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="err">《</span><span class="n">编码</span><span class="err">》</span><span class="p">(</span><span class="mf">1</span><span class="o">-</span><span class="mf">2</span><span class="n">周</span><span class="p">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">建立</span><span class="s">&quot;计算机怎么工作&quot;</span><span class="n">的直觉</span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">基础</span><span class="w"> </span><span class="p">(</span><span class="mf">2</span><span class="o">-</span><span class="mf">3</span><span class="n">周</span><span class="p">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">learncpp</span><span class="mf">.</span><span class="n">com</span><span class="w"> </span><span class="n">或视频教程</span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">线性代数直觉</span><span class="w"> </span><span class="p">(</span><span class="mf">1</span><span class="n">周</span><span class="p">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="mf">3</span><span class="n">Blue1Brown</span><span class="w"> </span><span class="n">视频</span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">动手写小项目</span><span class="w"> </span><span class="p">(</span><span class="mf">2</span><span class="n">周</span><span class="p">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">在</span><span class="w"> </span><span class="n">Unity</span><span class="w"> </span><span class="n">里做一个完整小游戏</span>
+</code></pre></div>
+
+<p>完成这 4 步大约需要 <strong>6-8 周</strong>。然后就可以正式进入书单了。</p>
+<hr />
+<h2 id="第一部分-完整书单与学习路径">第一部分：完整书单与学习路径</h2>
+<h3 id="第-1-本-《编码-隐匿在计算机软硬件背后的语言》">📖 第 1 本：《编码：隐匿在计算机软硬件背后的语言》</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Code: The Hidden Language of Computer Hardware and Software</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Charles Petzold（《Windows 程序设计》的作者）</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐（零基础友好，不需要任何编程知识）</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>前置 / 第 0 步</td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>2 周</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>这是理解"计算机怎么工作"的最佳入门书。从手电筒开关讲到 CPU，没有公式，全是直觉。读完你会真正理解：二进制为什么是计算机的基础、CPU 怎么"执行"代码、内存是什么。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>重点章节与验收标准：</strong></p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>核心内容</th>
+<th>验收标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 6-8 章（电报→继电器→逻辑门）</td>
+<td>继电器怎么变成逻辑门</td>
+<td>能解释为什么继电器能实现 AND/OR/NOT</td>
+</tr>
+<tr>
+<td>第 11-13 章（逻辑门→加法器）</td>
+<td>半加器、全加器</td>
+<td>能手画一个半加器的逻辑门电路图</td>
+</tr>
+<tr>
+<td>第 14 章（反馈与触发器）</td>
+<td>锁存器、触发器、存储 1 bit</td>
+<td>能解释触发器为什么可以"记住"一个位</td>
+</tr>
+<tr>
+<td>第 16-17 章（自动操作）</td>
+<td>存储程序计算机的概念</td>
+<td>能解释"为什么代码和数据都在内存里"</td>
+</tr>
+<tr>
+<td>第 18-20 章（CPU 雏形）</td>
+<td>指令集、程序计数器</td>
+<td>能手动画出"取指→译码→执行"的流程</td>
+</tr>
+<tr>
+<td>第 23 章（浮点数）</td>
+<td>IEEE 浮点数表示</td>
+<td>能解释为什么 <code>0.1 + 0.2 != 0.3</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>电子书资源</strong>：需购买（Amazon 有 Kindle 版，约 $20），但各地图书馆通常有。中文译版《编码》由电子工业出版社出版。</p>
+</blockquote>
+<hr />
+<h3 id="第-2-本-《深入理解计算机系统》-csapp">📖 第 2 本：《深入理解计算机系统》(CSAPP)</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Computer Systems: A Programmer's Perspective</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Randal E. Bryant &amp; David R. O'Hallaron（CMU 教授）</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐⭐（需要 C 语言基础）</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>第一阶段 — <strong>整个学习路径的核心教材</strong></td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>8-10 周（仅第 1-6 章）</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>它教你"程序到底是怎么在硬件上跑的"。这不是一本理论书——每个概念都配了可运行的代码和实验（Labs）。读完它，你对性能的理解会从"感觉"变成"模型"。</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>版本选择</strong>：第 3 版即可。英文版更准确，中文翻译有些地方不够精确。优先英文版，中文版作为辅助。</p>
+</blockquote>
+<p><strong>CSAPP 第 1-6 章学习计划：</strong></p>
+<table>
+<thead>
+<tr>
+<th>周次</th>
+<th>章节</th>
+<th>核心内容</th>
+<th>验收标准</th>
+<th>配套 Lab</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1 周</td>
+<td>第 1 章：计算机系统漫游</td>
+<td><code>hello.c</code> 的一生：预处理→编译→汇编→链接→运行</td>
+<td>能手绘这张流程图并解释每一步发生了什么</td>
+<td>—</td>
+</tr>
+<tr>
+<td>第 2-3 周</td>
+<td>第 2 章：信息的表示和处理</td>
+<td>补码、IEEE 754 浮点数、端序、位运算</td>
+<td><strong>自测</strong>：① 写出 -8 的 8 位补码 ② 解释为何 <code>0.1 + 0.2 != 0.3</code> ③ 解释大端/小端区别</td>
+<td>Data Lab</td>
+</tr>
+<tr>
+<td>第 4-5 周</td>
+<td>第 3 章：程序的机器级表示</td>
+<td>x86-64 汇编、栈帧、<code>%rsp</code>/<code>%rbp</code>、条件码、跳转、过程调用</td>
+<td><strong>实战</strong>：① 用 <code>gcc -S</code> 生成汇编 ② 读 godbolt.org 上的汇编输出 ③ 解释一个递归函数的栈帧变化</td>
+<td>Bomb Lab（可选）</td>
+</tr>
+<tr>
+<td>第 6 周</td>
+<td>第 4 章：处理器体系结构</td>
+<td>Y86-64 指令集、流水线（Pipeline）、数据冒险、控制冒险、分支预测</td>
+<td><strong>实战</strong>：修改 Y86-64 代码让流水线停顿，然后修复它</td>
+<td>—</td>
+</tr>
+<tr>
+<td>第 7-8 周</td>
+<td>第 5 章：优化程序性能</td>
+<td>减少过程调用、消除不必要的内存引用、循环展开、代码移动（Code Motion）</td>
+<td><strong>核心实战</strong>：写一个图像旋转 benchmark，从 50ms 优化到 &lt; 5ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>第 9-10 周</td>
+<td>第 6 章：存储器层次结构</td>
+<td>SRAM vs DRAM、局部性原理（时间/空间）、Cache Line（64 字节）、Cache Miss 类型、写入策略</td>
+<td><strong>核心实战</strong>：矩阵乘法——行优先 vs 列优先，benchmark 差距 ≥ 5x</td>
+<td>Cache Lab</td>
+</tr>
+</tbody>
+</table>
+<h4 id="csapp-综合大作业-第-10-周">CSAPP 综合大作业（第 10 周）</h4>
+<blockquote>
+<p>🔥 <strong>大作业：图像处理 Pipeline 优化</strong></p>
+<p>写一个完整的图像处理 Pipeline（旋转 + 模糊 + 边缘检测），从最朴素的实现开始，逐步优化到接近内存带宽上限。</p>
+<ul>
+<li><strong>版本 1</strong>：最简单的双重循环 → 性能基线（Baseline）</li>
+<li><strong>版本 2</strong>：循环分块（Loop Tiling）→ 利用 Cache 空间局部性</li>
+<li><strong>版本 3</strong>：SIMD 加速（SSE/AVX 或 NEON）</li>
+<li><strong>版本 4</strong>（选做）：多线程并行</li>
+<li><strong>最终产出</strong>：一份优化报告，包含每个版本的性能数据和设计决策</li>
+</ul>
+</blockquote>
+<p><strong>电子书资源：</strong>
+- 官网：https://csapp.cs.cmu.edu/ — 免费提供所有 Labs、代码示例、讲义
+- 书籍本身需购买（Amazon $80-150），但中文版和英文版在各大图书平台均有售
+- CMU 的 15-213 课程视频在 YouTube 上可以找到（搜索 "CMU 15-213"）</p>
+<hr />
+<h3 id="第-3-本-《real-time-rendering》第四版">📖 第 3 本：《Real-Time Rendering》第四版</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Real-Time Rendering, Fourth Edition</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Tomas Akenine-Möller, Eric Haines 等</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>第二至三阶段 — <strong>作为参考书，跳章阅读</strong></td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>不需要从头读到尾，作为参考书翻阅</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>实时渲染领域的百科全书。不是教你用哪个 API，而是教你渲染管线背后的原理。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>精读章节（按优先级）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>优先级</th>
+<th>章节</th>
+<th>核心内容</th>
+<th>验收标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 必读</td>
+<td>第 2 章：The Graphics Rendering Pipeline</td>
+<td>GPU 渲染管线完整流程</td>
+<td>能手绘：Application→Geometry→Rasterizer→Pixel 各阶段输入输出</td>
+</tr>
+<tr>
+<td>🔴 必读</td>
+<td>第 3 章：The Graphics Processing Unit</td>
+<td>GPU 架构、SIMD、延迟渲染 vs 前向渲染</td>
+<td>能解释为什么移动端用 TBR（Tile-Based Rendering）</td>
+</tr>
+<tr>
+<td>🔴 必读</td>
+<td>第 18 章：Pipeline Optimization</td>
+<td>Draw Call 合批、状态排序</td>
+<td>能将一个 200 Draw Call 的场景优化到 &lt; 30</td>
+</tr>
+<tr>
+<td>🟡 重要</td>
+<td>第 19 章：Acceleration Algorithms</td>
+<td>视锥剔除、遮挡剔除、LOD</td>
+<td>能实现一个简单的视锥剔除</td>
+</tr>
+<tr>
+<td>🟡 重要</td>
+<td>第 6 章：Texturing</td>
+<td>纹理过滤、Mipmap、压缩格式</td>
+<td>能解释为什么 ASTC 在移动端优于 DXT</td>
+</tr>
+<tr>
+<td>🟢 选读</td>
+<td>第 7 章：Shadows</td>
+<td>Shadow Map、CSM</td>
+<td>理解阴影贴图的基本原理</td>
+</tr>
+<tr>
+<td>🟢 选读</td>
+<td>第 9 章：Physically Based Shading</td>
+<td>PBR 管线</td>
+<td>理解 BRDF 的概念</td>
+</tr>
+</tbody>
+</table>
+<p><strong>电子书资源（丰富！）：</strong>
+- 官网：https://www.realtimerendering.com/ — 完全免费的在线资源
+  - ✅ <strong>免费 PDF 章节</strong>：第 25 章 Collision Detection、第 26 章 Real-Time Ray Tracing、附录（线性代数+三角学）
+  - ✅ <strong>免费 PDF</strong>：目录 + 前言 + 导论 + 参考文献 + 索引
+  - ✅ <strong>免费参考</strong>：全部参考文献有超链接，439+ 张高质量插图可下载
+  - ✅ <strong>Amazon Read Sample</strong>：免费阅读前 80 页（含前三章）
+  - 📦 全书购买：Amazon $80，Kindle $78</p>
+<hr />
+<h3 id="第-4-本-《游戏引擎架构》">📖 第 4 本：《游戏引擎架构》</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Game Engine Architecture</em> (第三版, 2018)</td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Jason Gregory（Naughty Dog 前引擎程序员）</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>第二至三阶段</td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>6-8 周（精读重点章节）</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>回答了"一个真正的商业游戏引擎内部长什么样"。不是教你用引擎，而是教你引擎本身是怎么设计的。作者来自顽皮狗（Naughty Dog），讲的都是实战经验。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>精读章节：</strong></p>
+<table>
+<thead>
+<tr>
+<th>优先级</th>
+<th>章节</th>
+<th>核心内容</th>
+<th>验收标准</th>
+<th>预计</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 必读</td>
+<td>第 1 章：Introduction</td>
+<td>引擎结构、工具管线、资源管理</td>
+<td>能画出典型游戏引擎的模块图</td>
+<td>1 周</td>
+</tr>
+<tr>
+<td>🔴 必读</td>
+<td>第 2 章：Tools of the Trade</td>
+<td>版本控制、构建系统、Profiler</td>
+<td>知道 CI/CD 在游戏开发中的角色</td>
+<td>0.5 周</td>
+</tr>
+<tr>
+<td>🔴 必读</td>
+<td>第 10 章：Rendering Engine</td>
+<td><strong>前向渲染 vs 延迟渲染</strong>、剔除、LOD、后处理</td>
+<td>能说清楚延迟渲染为什么对多光源场景友好</td>
+<td>2 周</td>
+</tr>
+<tr>
+<td>🟡 重要</td>
+<td>第 11 章：Animation System</td>
+<td>骨骼动画、蒙皮、混合树</td>
+<td>理解为什么骨骼动画比顶点动画更高效</td>
+<td>1 周</td>
+</tr>
+<tr>
+<td>🟡 重要</td>
+<td>第 14 章：Collision &amp; Physics</td>
+<td>AABB、OBB、GJK 算法</td>
+<td>实现一个 AABB vs AABB 碰撞检测</td>
+<td>1 周</td>
+</tr>
+<tr>
+<td>🟡 重要</td>
+<td>第 15 章：Game Loop &amp; Time</td>
+<td><strong>帧同步的定时循环</strong></td>
+<td>实现一个固定时间步长的游戏循环</td>
+<td>1 周</td>
+</tr>
+<tr>
+<td>🟢 选读</td>
+<td>第 17 章：Multiplayer</td>
+<td>网络同步模型</td>
+<td>与你的 Ares 项目结合阅读</td>
+<td>1 周</td>
+</tr>
+</tbody>
+</table>
+<p><strong>电子书资源：</strong>
+- 官网：https://www.gameenginebook.com/ — 有 TOC 和部分资源
+- Gamasutra 上有书摘：搜索 "Book Excerpt: Game Engine Architecture"
+- 需购买（Amazon ~$60），中文版《游戏引擎架构》由电子工业出版社出版</p>
+<hr />
+<h3 id="第-5-本-《c-concurrency-in-action》第二版">📖 第 5 本：《C++ Concurrency in Action》第二版</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>C++ Concurrency in Action, Second Edition</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Anthony Williams（C++11 线程库主要设计者之一）</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>第三阶段+（需要 C++ 基础）</td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>4-6 周</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>多线程是现代游戏引擎的基石。这本书的作者就是 C++ 标准委员会里写线程库的人，没有比他更权威的了。</td>
+</tr>
+</tbody>
+</table>
+<p><strong>精读章节：</strong></p>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>验收标准</th>
+<th>预计</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1-3 章：线程基础</td>
+<td>会正确使用 <code>std::thread</code>、<code>std::mutex</code>、<code>std::lock_guard</code>、<code>std::unique_lock</code></td>
+<td>1 周</td>
+</tr>
+<tr>
+<td>第 4 章：同步并发操作</td>
+<td>理解 <code>std::future</code>、<code>std::promise</code>、<code>std::async</code></td>
+<td>1 周</td>
+</tr>
+<tr>
+<td><strong>第 5 章：C++ 内存模型与原子操作</strong></td>
+<td><strong>核心</strong>：理解 <code>std::memory_order_relaxed/acquire/release/seq_cst</code> 的区别</td>
+<td>1.5 周</td>
+</tr>
+<tr>
+<td>第 6 章：设计无锁数据结构</td>
+<td>写一个 Lock-Free SPSC Queue</td>
+<td>1.5 周</td>
+</tr>
+<tr>
+<td>第 8 章：设计并发代码</td>
+<td>写一个简单的 Job System（线程池 + 任务队列）</td>
+<td>1 周</td>
+</tr>
+</tbody>
+</table>
+<p><strong>电子书资源：</strong>
+- Manning 出版社官网有免费章节：https://www.manning.com/books/c-plus-plus-concurrency-in-action-second-edition
+- 需购买（Manning $50，Amazon ~$45），Manning 的电子版质量很好</p>
+<hr />
+<h3 id="第-6-本-《data-oriented-design》">📖 第 6 本：《Data-Oriented Design》</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Data-Oriented Design</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Richard Fabian</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐⭐</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>第三阶段</td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>2-3 周</td>
+</tr>
+<tr>
+<td><strong>为什么读</strong></td>
+<td>ECS 架构的理论基础。教你从"面向对象"思维切换到"面向数据"思维。读完你会理解：为什么 Unity 要推 DOTS/ECS。</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>重点</th>
+<th>验收标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1-3 章：数据导向设计基础</td>
+<td>能解释为什么 AoS（Array of Structs）对缓存不友好</td>
+</tr>
+<tr>
+<td>第 4-5 章：内存与缓存</td>
+<td>能画出 AoS vs SoA 在内存中的布局差异</td>
+</tr>
+<tr>
+<td><strong>实战</strong>：AoS vs SoA</td>
+<td>用 C++ 写两个版本遍历 1000 万个对象的 benchmark，SoA 版本至少快 3x</td>
+</tr>
+</tbody>
+</table>
+<p><strong>电子书资源：</strong>
+- ✅ <strong>免费在线版</strong>：https://www.dataorienteddesign.com/dodbook/ — 核心章节完全免费在线阅读
+- 完整纸质版：Amazon $30
+- GitHub 源码：https://github.com/raspofabs/dodbooksourcecode</p>
+<hr />
+<h3 id="第-7-本-选读-《unity-游戏优化》第-3-版">📖 第 7 本（选读）：《Unity 游戏优化》第 3 版</h3>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>英文名</strong></td>
+<td><em>Unity Game Optimization, Third Edition</em></td>
+</tr>
+<tr>
+<td><strong>作者</strong></td>
+<td>Davide Aversa, Chris Dickinson</td>
+</tr>
+<tr>
+<td><strong>难度</strong></td>
+<td>⭐⭐</td>
+</tr>
+<tr>
+<td><strong>阶段</strong></td>
+<td>贯穿 — <strong>当作手册随手翻阅</strong></td>
+</tr>
+<tr>
+<td><strong>预计时间</strong></td>
+<td>不需要通读，遇到问题时查对应章节</td>
+</tr>
+</tbody>
+</table>
+<p><strong>常见问题速查：</strong>
+- Draw Call 太多 → 第 4 章
+- GC 导致卡顿 → 第 3 章
+- UI 性能差 → 第 6 章
+- 加载慢 → 第 8 章
+- Shader 级优化 → 第 5 章</p>
+<p><strong>电子书资源：</strong>
+- Packt 出版社官网有免费章节
+- Amazon Kindle ~$30</p>
+<hr />
+<h3 id="补充免费在线资源-极力推荐">🔧 补充免费在线资源（极力推荐）</h3>
+<table>
+<thead>
+<tr>
+<th>资源</th>
+<th>链接</th>
+<th>为什么推荐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Game Programming Patterns</strong></td>
+<td>https://gameprogrammingpatterns.com/</td>
+<td>完整免费在线书，讲游戏设计模式（对象池、状态机、观察者等），代码用 C++。<strong>读完 CSAPP 后读这本</strong></td>
+</tr>
+<tr>
+<td><strong>LearnOpenGL</strong></td>
+<td>https://learnopengl.com/</td>
+<td>完整的现代 OpenGL 教程，从三角形画到 PBR+延迟渲染。<strong>动手跟着写代码，不是光看</strong></td>
+</tr>
+<tr>
+<td><strong>The Book of Shaders</strong></td>
+<td>https://thebookofshaders.com/</td>
+<td>交互式 Shader 教程，在浏览器里运行</td>
+</tr>
+<tr>
+<td><strong>PBRT v4</strong></td>
+<td>https://www.pbr-book.org/</td>
+<td>完整免费的《Physically Based Rendering》，光追/渲染的权威教材</td>
+</tr>
+<tr>
+<td><strong>Scratchapixel</strong></td>
+<td>https://www.scratchapixel.com/</td>
+<td>计算机图形学从零开始，有代码有图示</td>
+</tr>
+<tr>
+<td><strong>godbolt.org</strong></td>
+<td>https://godbolt.org/</td>
+<td>在线编译器，C/C++ 源码→汇编，实时看优化效果。<strong>学 CSAPP 第 3 章时的神器</strong></td>
+</tr>
+<tr>
+<td><strong>CMU 15-213</strong></td>
+<td>YouTube 搜索 "CMU 15-213"</td>
+<td>CSAPP 的配套课程视频（英语），CMU 教授亲自讲</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="第二部分-电子书与在线资源汇总">第二部分：电子书与在线资源汇总</h2>
+<h3 id="资源获取总表">📊 资源获取总表</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>书名</th>
+<th>免费资源</th>
+<th>购买渠道</th>
+<th>中文版</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>《编码》</td>
+<td>图书馆通常可借</td>
+<td>Amazon Kindle ~$20</td>
+<td>有，《编码》电子工业出版社</td>
+</tr>
+<tr>
+<td>2</td>
+<td>《CSAPP》</td>
+<td>✅ Labs + 代码 + 讲义免费（csapp.cs.cmu.edu）</td>
+<td>Amazon $80-150</td>
+<td>有，《深入理解计算机系统》机械工业出版社</td>
+</tr>
+<tr>
+<td>3</td>
+<td>《Real-Time Rendering》第 4 版</td>
+<td>✅ 3 个免费 PDF 章 + 前 80 页试读</td>
+<td>Amazon $80，Kindle $78</td>
+<td>无完整中文版</td>
+</tr>
+<tr>
+<td>4</td>
+<td>《游戏引擎架构》</td>
+<td>官网 + Gamasutra 书摘</td>
+<td>Amazon ~$60</td>
+<td>有，《游戏引擎架构》电子工业出版社</td>
+</tr>
+<tr>
+<td>5</td>
+<td>《C++ Concurrency in Action》第 2 版</td>
+<td>Manning 官网免费章节</td>
+<td>Manning $50，Amazon ~$45</td>
+<td>无（但很容易找到……）</td>
+</tr>
+<tr>
+<td>6</td>
+<td>《Data-Oriented Design》</td>
+<td>✅ 核心章节免费在线</td>
+<td>Amazon $30</td>
+<td>无</td>
+</tr>
+<tr>
+<td>7</td>
+<td>《Unity Game Optimization》第 3 版</td>
+<td>Packt 官网免费章节</td>
+<td>Amazon Kindle ~$30</td>
+<td>无</td>
+</tr>
+<tr>
+<td>+</td>
+<td>Game Programming Patterns</td>
+<td>✅ 完整免费在线</td>
+<td>印刷版 $25（自愿支持）</td>
+<td>有社区翻译</td>
+</tr>
+<tr>
+<td>+</td>
+<td>LearnOpenGL</td>
+<td>✅ 完整免费在线</td>
+<td>印刷版 Amazon（支持作者）</td>
+<td>有中文翻译版</td>
+</tr>
+<tr>
+<td>+</td>
+<td>The Book of Shaders</td>
+<td>✅ 完整免费在线</td>
+<td>—</td>
+<td>有中文翻译</td>
+</tr>
+</tbody>
+</table>
+<h3 id="如何获得这些书-实用建议">💡 如何获得这些书（实用建议）</h3>
+<ol>
+<li><strong>免费资源先消化</strong>：Game Programming Patterns + LearnOpenGL + Data-Oriented Design + RTR4 免费章节，这些全免费，够你啃好几个月</li>
+<li><strong>CSAPP 必买</strong>：这是整个学习路径的核心教材，绝对值回票价。买英文版（International Edition 更便宜）</li>
+<li><strong>公司报销</strong>：很多游戏公司有学习经费，可以报销技术书籍</li>
+<li><strong>技术图书社区</strong>：中文互联网上很多技术类图书的 PDF 流通——我们不鼓励盗版，但事实是这些资源很容易找到</li>
+<li><strong>图书馆</strong>：如果在一线城市，市级图书馆通常有 CSAPP 和《编码》</li>
+</ol>
+<hr />
+<h2 id="第三部分-验收检测体系">第三部分：验收检测体系</h2>
+<h3 id="金字塔模型">金字塔模型</h3>
+<div class="codehilite"><pre><span></span><code>         ┌────────────┐
+         │  实战项目   │ ← 第四层：综合运用，独立完成真实优化
+        ┌┴────────────┴┐
+        │  代码产出    │ ← 第三层：能写出正确且高效的代码
+       ┌┴──────────────┴┐
+       │  概念解释      │ ← 第二层：能用自己的话说清楚原理
+      ┌┴────────────────┴┐
+      │  数据复现        │ ← 第一层：能 benchmark 出理论预期的差距
+     └───────────────────┘
+</code></pre></div>
+
+<blockquote>
+<p>每一层都不可或缺。"我懂了但写不出来" = 没有真懂。</p>
+</blockquote>
+<h3 id="各阶段验收关卡">各阶段验收关卡</h3>
+<h4 id="第一阶段验收-csapp-第-1-6-章之后">🟢 第一阶段验收（CSAPP 第 1-6 章之后）</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>验收项</th>
+<th>通过标准</th>
+<th>检测方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Cache Miss 实战</td>
+<td>列优先 vs 行优先遍历 4096×4096 矩阵，benchmark 差距 ≥ 5x</td>
+<td>跑代码，截图数据</td>
+</tr>
+<tr>
+<td>2</td>
+<td>分支预测失败</td>
+<td>写一段排序后的数组 vs 未排序数组的遍历代码，前者显著更快</td>
+<td>跑代码，截图数据</td>
+</tr>
+<tr>
+<td>3</td>
+<td>反汇编阅读</td>
+<td>给一段 C 代码，在 godbolt.org 上看汇编，能解释-O0和-O2的差异</td>
+<td>口头答辩或写笔记</td>
+</tr>
+<tr>
+<td>4</td>
+<td>struct 内存对齐</td>
+<td>给 3 个不同字段排列的 struct，能手算 sizeof</td>
+<td>口头答辩</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Pipeline 理解</td>
+<td>能解释为什么 "预测失败的分支" 代价比 "未预测的分支" 大</td>
+<td>口头答辩</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>综合大作业</strong></td>
+<td>图像旋转优化：从基线版本逐步优化到接近内存带宽</td>
+<td>代码 + 优化报告</td>
+</tr>
+</tbody>
+</table>
+<h4 id="第二阶段验收">🟡 第二阶段验收</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>验收项</th>
+<th>通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>渲染管线</td>
+<td>关闭 Scene 中某类对象，从 Profiler 判断是 CPU Bound 还是 GPU Bound</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Draw Call 合批</td>
+<td>一个 100+ Draw Call 的 UI 界面，优化到 &lt; 20 Draw Call，帧率 ≥ 60fps</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Profiler 独立诊断</td>
+<td>给一个"故意变慢"的场景，独立完成：Profile→定位→修复→验证</td>
+</tr>
+<tr>
+<td>4</td>
+<td>纹理优化</td>
+<td>将场景的纹理从不压缩改为 ASTC，测量内存和帧率变化</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Overdraw 优化</td>
+<td>定位一个 Overdraw 严重的场景，通过渲染顺序优化改善</td>
+</tr>
+</tbody>
+</table>
+<h4 id="第三阶段验收">🔵 第三阶段验收</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>验收项</th>
+<th>通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>内存分配器</td>
+<td>实现一个简易 Stack Allocator，benchmark 对比 <code>malloc</code>（至少 2x 快）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>AoS vs SoA</td>
+<td>两种数据结构遍历 1000 万元素，SoA 至少快 3x</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Job System</td>
+<td>用 Job System 并行化计算任务，加速比 ≥ 核心数 × 0.6</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Lock-Free Queue</td>
+<td>实现 SPSC Lock-Free Queue，通过多线程压测</td>
+</tr>
+<tr>
+<td>5</td>
+<td>帧预算分析</td>
+<td>在 Profiler 中准确分配 Main Thread 和 Render Thread 的每毫秒</td>
+</tr>
+</tbody>
+</table>
+<h4 id="第四阶段验收-综合实战">🟣 第四阶段验收（综合实战）</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>验收项</th>
+<th>通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>真实性能 Bug</td>
+<td>独立接手一个线上或 QA 报告的性能 Bug，完整产出优化报告</td>
+</tr>
+<tr>
+<td>2</td>
+<td>技术分享</td>
+<td>在团队内做一次 30 分钟的性能优化技术分享</td>
+</tr>
+<tr>
+<td>3</td>
+<td>技术文档</td>
+<td>产出一篇高质量的技术博客/文档</td>
+</tr>
+</tbody>
+</table>
+<h3 id="自测题库-快速检验是否-假懂">🧪 自测题库（快速检验是否"假懂"）</h3>
+<p>这 10 个问题覆盖了性能优化的核心概念。<strong>如果能不看答案、用自己的话解释清楚，算真正入门了。</strong></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>问题</th>
+<th>考点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>"L1 缓存为什么是 32KB 而不是 32MB？"</td>
+<td>缓存设计的 trade-off：速度 vs 容量 vs 成本</td>
+</tr>
+<tr>
+<td>2</td>
+<td>"为什么游戏用 UDP 而不是 TCP？"</td>
+<td>网络协议的 Head-of-Line Blocking 和实时性需求</td>
+</tr>
+<tr>
+<td>3</td>
+<td>"两个函数各耗时 5ms，可以并行吗？"</td>
+<td>数据依赖（Data Dependency）和并行化条件</td>
+</tr>
+<tr>
+<td>4</td>
+<td>"struct 有 <code>int, bool, float</code>，sizeof 是多少？"</td>
+<td>内存对齐（Alignment &amp; Padding）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>"为什么手机上 Shader 用 <code>half</code> 而不是 <code>float</code>？"</td>
+<td>移动端 GPU 的精度与性能 trade-off</td>
+</tr>
+<tr>
+<td>6</td>
+<td>"<code>for(int i=0;i&lt;n;i++)</code> 和 <code>for(int i=n-1;i&gt;=0;i--)</code> 哪个快？"</td>
+<td>递减比较（与零比较）通常快于递增比较</td>
+</tr>
+<tr>
+<td>7</td>
+<td>"为什么 Unity 里 <code>GameObject.Find()</code> 是性能杀手？"</td>
+<td>字符串查找 + 全场景遍历 = O(n)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>"一个空场景为什么也有 6ms 的渲染时间？"</td>
+<td>VSync、引擎开销、编辑器开销</td>
+</tr>
+<tr>
+<td>9</td>
+<td>"100 个 100 面的模型 vs 1 个 10000 面的模型，哪个渲染快？"</td>
+<td>Draw Call 开销 &gt; 顶点数开销（在很多情况下）</td>
+</tr>
+<tr>
+<td>10</td>
+<td>"为什么不能在 <code>Update()</code> 里用 <code>Resources.Load()</code>？"</td>
+<td>同步加载阻塞主线程，导致帧率抖动</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="第四部分-每周实战训练计划">第四部分：每周实战训练计划</h2>
+<blockquote>
+<p>光读书不写代码 = 纸上谈兵。以下是你前 12 周的实战训练计划。</p>
+</blockquote>
+<h3 id="第-1-2-周-硬件直觉养成">第 1-2 周：硬件直觉养成</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+<th>工具</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>逻辑门实验</strong></td>
+<td>用任何方式（纸笔/在线模拟器）搭建一个 4 位加法器</td>
+<td><a href="https://logic.ly/">Logicly</a> 或纸笔</td>
+</tr>
+<tr>
+<td><strong>浮点数实验</strong></td>
+<td>写代码验证 <code>0.1 + 0.2 != 0.3</code>，研究 IEEE 754 表示</td>
+<td>Python REPL</td>
+</tr>
+<tr>
+<td><strong>字节序实验</strong></td>
+<td>用 C 写代码检测本机是大端还是小端</td>
+<td>C</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第-3-6-周-csapp-实战训练">第 3-6 周：CSAPP 实战训练</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>汇编阅读</strong></td>
+<td>每天在 godbolt.org 上编译一个简单 C 函数，读-O0/-O2 的汇编差异</td>
+</tr>
+<tr>
+<td><strong>Data Lab</strong></td>
+<td>完成 CSAPP 官方的 Data Lab（位操作谜题）</td>
+</tr>
+<tr>
+<td><strong>Cache Miss 实验</strong></td>
+<td>用不同步长遍历大数组，测量性能差异</td>
+</tr>
+<tr>
+<td><strong>结构体布局实验</strong></td>
+<td>手动排列 struct 字段顺序，对比 sizeof</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第-7-10-周-csapp-深度实战">第 7-10 周：CSAPP 深度实战</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>矩阵乘法优化</strong></td>
+<td>从三重循环开始，逐步加入分块、循环交换、SIMD 提示</td>
+</tr>
+<tr>
+<td><strong>Profiler 初体验</strong></td>
+<td>在 Unity 中 Profiler.BeginSample 标记你的代码，看耗时分布</td>
+</tr>
+<tr>
+<td><strong>Benchmark 能力</strong></td>
+<td>学会用 <code>std::chrono</code> 或 C# <code>Stopwatch</code> 做精确计时（排除冷启动）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第-11-18-周-渲染与引擎实战">第 11-18 周：渲染与引擎实战</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Draw Call 优化</strong></td>
+<td>在 Unity 中做一个 100 个独立 GameObject 的场景，然后逐步合批</td>
+</tr>
+<tr>
+<td><strong>Frame Debugger</strong></td>
+<td>用 Unity Frame Debugger 一步一步看渲染过程</td>
+</tr>
+<tr>
+<td><strong>Shader 实验</strong></td>
+<td>跟着 The Book of Shaders 写几个简单 Shader</td>
+</tr>
+<tr>
+<td><strong>Overdraw 可视化</strong></td>
+<td>在 Unity 中开启 Overdraw 视图模式，找到最严重的区域</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第-19-26-周-引擎架构实战">第 19-26 周：引擎架构实战</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>迷你引擎</strong></td>
+<td>用 C++ 写一个简单的渲染循环 + 对象管理（结合你的 Ares 项目）</td>
+</tr>
+<tr>
+<td><strong>内存分配器</strong></td>
+<td>实现 Stack Allocator + Pool Allocator，benchmark 对比 malloc</td>
+</tr>
+<tr>
+<td><strong>ECS 实验</strong></td>
+<td>实现一个简单的 ECS 框架（Entity + Component + System）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第-27-32-周-多线程实战">第 27-32 周：多线程实战</h3>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>具体内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Job System</strong></td>
+<td>实现一个简易的 Job System（线程池 + 任务队列）</td>
+</tr>
+<tr>
+<td><strong>Lock-Free Queue</strong></td>
+<td>实现 SPSC Lock-Free Queue</td>
+</tr>
+<tr>
+<td><strong>并行化实战</strong></td>
+<td>找 Ares 项目中一个可并行的计算，用 Job System 改写</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="第五部分-总时间线与里程碑">第五部分：总时间线与里程碑</h2>
+<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 第 0 周         ┃ 前置知识自检，补漏洞                                             │
+│                 ┃ 产出：自检清单（打钩/打叉）+ 补课计划                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 1-2 周       ┃ 《编码》                                                       │
+│                 ┃ 产出：手画 CPU 原理图 + 浮点数精度实验笔记                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 3-12 周      ┃ 《CSAPP》第 1-6 章 ← 整个路径的基石                              │
+│                 ┃ 产出：Data Lab 完成 + 图像旋转优化报告 + Cache Miss 数据           │
+│                 ┃ 🏆 里程碑 1：「我理解了程序在硬件上的执行全过程」                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 13-18 周     ┃ 《RTR4》重点章 + LearnOpenGL 动手                                │
+│                 ┃ 产出：渲染管线手绘图 + Draw Call 优化案例                          │
+│                 ┃ 🏆 里程碑 2：「我能从 GPU 的角度思考性能」                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 19-26 周     ┃ 《游戏引擎架构》+ Data-Oriented Design                           │
+│                 ┃ 产出：引擎模块图 + AoS vs SoA benchmark                         │
+│                 ┃ 🏆 里程碑 3：「我理解了商业游戏引擎的完整架构」                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 27-32 周     ┃ 《C++ Concurrency in Action》+ 项目实战                          │
+│                 ┃ 产出：Job System 实现 + Lock-Free Queue                        │
+│                 ┃ 🏆 里程碑 4：「我能设计和实现并发系统」                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 第 33 周+       ┃ 持续项目实战 + 源码阅读 + 技术输出                                │
+│                 ┃ 🏆 最终里程碑：「独立负责性能优化的全流程」                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+
+<hr />
+<h2 id="附录-a-给你的几条学习心法">附录 A：给你的几条学习心法</h2>
+<h3 id="1-不要追求-读完-追求-做出来">1. 不要追求"读完"，追求"做出来"</h3>
+<p>CSAPP 的每一个 Lab 都比读 10 遍书有用。<strong>手不写代码，永远学不会性能优化。</strong></p>
+<h3 id="2-benchmark-everything">2. Benchmark Everything</h3>
+<p>任何你"觉得"的优化，都必须用 benchmark 验证。<strong>没有数据的优化是信仰，不是工程。</strong></p>
+<h3 id="3-问-为什么-到不能再问为止">3. 问"为什么"到不能再问为止</h3>
+<p>不要说"因为 Cache Miss 所以慢"，继续追问："为什么 Cache Miss？数据布局哪里有问题？我该怎么改？"</p>
+<h3 id="4-教别人是最高效的学习方式">4. 教别人是最高效的学习方式</h3>
+<p>每学完一章，试着给"昨天的自己"写一段解释。如果你写不出来，说明你没真懂。</p>
+<h3 id="5-接受-慢-这是正常的">5. 接受"慢"——这是正常的</h3>
+<p>CSAPP 第 6 章可能会让你怀疑人生。<strong>正常的。</strong> 每个人第一次学缓存层次时都这样。坚持下来，一周后回头看会觉得豁然开朗。</p>
+<h3 id="6-英语不是障碍-是工具">6. 英语不是障碍，是工具</h3>
+<p>英文资料的质量远超中文翻译。不要等中文版。用 DeepL + 英文字幕，慢慢就习惯了。</p>
+<hr />
+<h2 id="附录-b-推荐学习节奏">附录 B：推荐学习节奏</h2>
+<div class="codehilite"><pre><span></span><code>每天：至少 1 小时专注阅读 + 30 分钟写代码验证
+每周：周末做一次大的实战训练（3-4 小时）
+每月：回顾本月学的，写一篇总结笔记
+每季度：在团队内做一次技术分享
+</code></pre></div>
+
+<blockquote>
+<p>一年 200 小时的深度投入，足够你从"会用引擎"到"理解引擎"完成质变。</p>
+</blockquote>
+<hr />
+<p><em>这份手册会持续更新。性能优化是一个"永远在路上"的领域——新的硬件架构、新的 API、新的编程范式不断涌现。保持好奇心，保持对数据的敬畏，保持对"为什么"的追问。</em></p>
+<p><em>加油！</em> 🚀</p>
+</main>
+</body>
+</html>

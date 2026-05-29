@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ares 求职补齐学习计划</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+
+<nav class="ghibli-sidebar">
+  <h2 class="ghibli-sidebar-title">📋 目录</h2>
+  <a href="#overview" class="ghibli-nav-link active">总览 & 时间规划</a>
+  <a class="ghibli-nav-link" href="#phase1">阶段一：分布式系统基石</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase1">→ 服务发现 & etcd</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase1">→ 一致性 & Raft</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase1">→ 负载均衡 & 熔断</a>
+  <a class="ghibli-nav-link" href="#phase2">阶段二：数据层 & 安全</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase2">→ SQL 持久化</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase2">→ Redis 缓存</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase2">→ 安全加固</a>
+  <a class="ghibli-nav-link" href="#phase3">阶段三：Rust 进阶</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase3">→ 异步深入 & Pin</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase3">→ Actor 模式</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase3">→ 性能优化</a>
+  <a class="ghibli-nav-link" href="#phase4">阶段四：可观测性 & 运维</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase4">→ 结构化日志</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase4">→ Metrics & 告警</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase4">→ Docker / CI</a>
+  <a class="ghibli-nav-link" href="#phase5">阶段五：系统设计面试</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase5">→ 游戏服务器设计</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase5">→ 万人同屏</a>
+  <a class="ghibli-nav-link ghibli-nav-sub" href="#phase5">→ 帧同步深度</a>
+  <a class="ghibli-nav-link" href="#checklist">最终面试清单</a>
+  <a class="ghibli-nav-link" href="#resources">推荐资源</a>
+</nav>
+
+<main class="ghibli-main">
+
+<h1 class="ghibli-h1">🎯 Ares 求职补齐学习计划</h1>
+<p class="ghibli-subtitle">基于项目现状的针对性补强 —— 面向分布式游戏服务器 / 后端岗位</p>
+
+<!-- ============================================================ -->
+<!-- 总览 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="overview">📊 总览 & 时间规划</h2>
+
+<div class="ghibli-callout good">
+  <strong>预估总时长：8–12 周</strong>（每天 2–3 小时，周末可适当加倍）<br>
+  分为 5 个阶段，每个阶段 1.5–3 周，可按优先级调整顺序。
+</div>
+
+<div class="ghibli-timeline">
+  <div class="ghibli-timeline-item week">
+    <div class="ghibli-timeline-time">第 1–2 周</div>
+    <h3 class="ghibli-h3">阶段一：分布式系统基石</h3>
+    <p>服务发现落地 · Raft 理解 · 负载均衡/熔断</p>
+    <div class="ghibli-progress"><div class="ghibli-progress-fill ghibli-progress-green" style="width:100%"></div></div>
+  </div>
+  <div class="ghibli-timeline-item week">
+    <div class="ghibli-timeline-time">第 3–4 周</div>
+    <h3 class="ghibli-h3">阶段二：数据层 & 安全</h3>
+    <p>MySQL 持久化 · Redis 缓存 · Token/TLS/防作弊</p>
+    <div class="ghibli-progress"><div class="ghibli-progress-fill ghibli-progress-blue" style="width:100%"></div></div>
+  </div>
+  <div class="ghibli-timeline-item week">
+    <div class="ghibli-timeline-time">第 5–6 周</div>
+    <h3 class="ghibli-h3">阶段三：Rust 进阶</h3>
+    <p>Pin/async 深入 · Actor 模型 · 性能优化</p>
+    <div class="ghibli-progress"><div class="ghibli-progress-fill ghibli-progress-purple" style="width:100%"></div></div>
+  </div>
+  <div class="ghibli-timeline-item week">
+    <div class="ghibli-timeline-time">第 7–8 周</div>
+    <h3 class="ghibli-h3">阶段四：可观测性 & 运维</h3>
+    <p>结构化日志 · Prometheus · Docker · CI/CD</p>
+    <div class="ghibli-progress"><div class="ghibli-progress-fill ghibli-progress-orange" style="width:100%"></div></div>
+  </div>
+  <div class="ghibli-timeline-item week">
+    <div class="ghibli-timeline-time">第 9–12 周</div>
+    <h3 class="ghibli-h3">阶段五：系统设计面试</h3>
+    <p>游戏架构设计 · 万人同屏 · 帧同步深度 · 模拟面试</p>
+    <div class="ghibli-progress"><div class="ghibli-progress-fill ghibli-progress-green" style="width:100%"></div></div>
+  </div>
+</div>
+
+<h3 class="ghibli-h3">能力热力图</h3>
+
+<div class="ghibli-card-grid">
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-green"></span> 已有基础</div>
+    <h4 class="ghibli-h4">网络 & 协议</h4>
+    <p>TCP 自定义协议、gRPC、Protobuf、消息编解码</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-green"></span> 已有基础</div>
+    <h4 class="ghibli-h4">战斗引擎</h4>
+    <p>Lockstep / StateSync / Hybrid，InputBuffer，AOI</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-green"></span> 已有基础</div>
+    <h4 class="ghibli-h4">匹配 & 房间</h4>
+    <p>ELO 排序、ABBA 分边、房间状态机、Battle 分配</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-orange"></span> 需要加强</div>
+    <h4 class="ghibli-h4">Rust 异步 & 并发</h4>
+    <p>已用 Tokio，但需深入 Pin、Stream、自定义 Future</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-red"></span> 急需补齐</div>
+    <h4 class="ghibli-h4">分布式系统</h4>
+    <p>服务发现、一致性、CAP 理解、选举算法</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-red"></span> 急需补齐</div>
+    <h4 class="ghibli-h4">数据持久化</h4>
+    <p>MySQL schema 设计、连接池、migration、Redis 缓存策略</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-red"></span> 急需补齐</div>
+    <h4 class="ghibli-h4">安全 & 运维</h4>
+    <p>TLS/mTLS、JWT、防作弊、Docker、K8s、CI/CD</p>
+  </div>
+  <div class="ghibli-card">
+    <div class="ghibli-card-status"><span class="ghibli-dot ghibli-dot-orange"></span> 需要加强</div>
+    <h4 class="ghibli-h4">系统设计</h4>
+    <p>架构白板题、容量规划、trade-off 分析</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 阶段一 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="phase1">🏗️ 阶段一：分布式系统基石（第 1–2 周）</h2>
+<p>面试官看到你用了 <code>etcd-client</code> 依赖，<strong>一定会问</strong>：「你们怎么用 etcd 做服务发现的？节点宕机了怎么处理？」——你必须能答上来且有代码支撑。</p>
+
+<h3 class="ghibli-h3">1.1 服务发现 → 落地到 Ares</h3>
+
+<div class="ghibli-callout">
+  <strong>目标：</strong>把 etcd 从依赖变成真正可工作的服务发现层
+</div>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>学习 etcd 核心概念：lease、watch、kv、prefix</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">2天</span></td>
+    <td>能讲清 etcd 如何保证 CP</td>
+  </tr>
+  <tr>
+    <td>实现 <code>ServiceRegistry</code>：启动注册 + 心跳续约 + 优雅下线</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">2天</span></td>
+    <td>各服务启动时自动注册到 etcd</td>
+  </tr>
+  <tr>
+    <td>实现 <code>ServiceDiscovery</code>：watch prefix + 本地缓存 + 健康检查</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">2天</span></td>
+    <td>Gateway 动态发现 Game/Room/Battle 实例</td>
+  </tr>
+  <tr>
+    <td>处理节点宕机：lease 过期自动剔除 + Gateway 重连逻辑</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1天</span></td>
+    <td>节点挂掉不影响系统运行</td>
+  </tr>
+  <tr>
+    <td>编写服务发现集成测试</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1天</span></td>
+    <td>test_service_register_deregister</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">面试回答模板</h4>
+<pre class="ghibli-pre"><code>我们使用 etcd 的 lease 机制做服务注册，每个节点启动时用 30 秒 TTL
+注册到 /ares/services/{service_type}/{node_id}，每 10 秒续约一次。
+Gateway 通过 watch 这个 prefix 实时感知节点上下线，本地缓存一份
+endpoint 列表，路由时用 LeastLoaded 策略选择目标节点。
+
+如果 etcd 宕机了怎么办？—— 每个节点本地有 fallback 配置列表，
+etcd 不可用时降级为静态路由。这是我们实现的优雅降级。</code></pre>
+
+<h3 class="ghibli-h3">1.2 一致性 → 理解 Raft</h3>
+
+<div class="ghibli-callout">
+  <strong>目标：</strong>能画图解释 Raft 的 Leader Election + Log Replication
+</div>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>看 <a href="https://raft.github.io/" target="_blank">Raft 可视化动画</a>，理解选举/日志复制/快照</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>能手动推演选举过程</td>
+  </tr>
+  <tr>
+    <td>阅读 etcd 如何基于 Raft 工作</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>理解 etcd 是 CP 系统</td>
+  </tr>
+  <tr>
+    <td>理解 CAP 定理，能对号入座</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">0.5天</span></td>
+    <td>学会说「Gateway 是 AP，MatchEngine 是 CP」</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">面试回答模板</h4>
+<pre class="ghibli-pre"><code>游戏服务器的不同模块对一致性的要求不同：
+- 匹配引擎：需要强一致性（CP），用 etcd 的原子操作保证不会重复匹配
+- Gateway 路由：可用性优先（AP），允许短暂路由到旧节点
+- 房间状态：最终一致性即可，通过 etcd watch 收敛
+
+我们利用 etcd 的 conditional update 实现了分布式锁，确保匹配结果
+不会被两个 Game 节点同时消费。</code></pre>
+
+<h3 class="ghibli-h3">1.3 负载均衡 & 容错</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>学习常见 LB 算法：RoundRobin / LeastConn / ConsistentHash / Weighted</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>能手写代码 + 画图解释</td>
+  </tr>
+  <tr>
+    <td>在 Ares Gateway 中实现可切换的 LB 策略</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>Router 支持 strategy 配置</td>
+  </tr>
+  <tr>
+    <td>学习熔断 (Circuit Breaker) 和重试策略（指数退避、jitter）</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>接入 tower 或手写简单版本</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<!-- 阶段二 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="phase2">💾 阶段二：数据层 & 安全（第 3–4 周）</h2>
+
+<h3 class="ghibli-h3">2.1 MySQL 持久化 → 落地</h3>
+
+<div class="ghibli-callout warn">
+  <strong>当前痛点：</strong><code>sqlx</code> 在 dependencies 里但完全没有使用。面试官会问「数据怎么存的？」—— 你不能说「还没做」。
+</div>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>设计数据库 Schema：players / accounts / matches / battles / replays</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1.5天</span></td>
+    <td>一份 SQL migration 文件 + ER 图</td>
+  </tr>
+  <tr>
+    <td>实现 <code>PlayerRepo</code>：CRUD + 连接池 + 事务</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">2天</span></td>
+    <td>sqlx 写入 Ares 代码</td>
+  </tr>
+  <tr>
+    <td>实现 <code>MatchHistory</code> 存储和查询</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1天</span></td>
+    <td>战斗结束后写入 MySQL</td>
+  </tr>
+  <tr>
+    <td>理解并实践 migration 工具（sqlx migrate / refinery）</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">0.5天</span></td>
+    <td>可复现的数据库初始化</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">Schema 设计建议</h4>
+<pre class="ghibli-pre"><code>-- 账号表
+CREATE TABLE accounts (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account VARCHAR(64) UNIQUE NOT NULL,
+    password_hash VARCHAR(256) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP NULL
+);
+
+-- 玩家表（一个账号可有多个角色）
+CREATE TABLE players (
+    id BIGINT PRIMARY KEY,
+    account_id BIGINT NOT NULL REFERENCES accounts(id),
+    nickname VARCHAR(32) NOT NULL,
+    mmr INT DEFAULT 1000,
+    level INT DEFAULT 1,
+    total_matches INT DEFAULT 0,
+    win_count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 对局记录
+CREATE TABLE battle_records (
+    id BIGINT PRIMARY KEY,
+    battle_id BIGINT NOT NULL,
+    player_id BIGINT NOT NULL,
+    hero_id INT,
+    team_id INT,
+    kills INT DEFAULT 0,
+    deaths INT DEFAULT 0,
+    assists INT DEFAULT 0,
+    result ENUM('win', 'lose', 'draw'),
+    mmr_change INT,
+    played_at TIMESTAMP NOT NULL,
+    INDEX idx_player (player_id, played_at)
+);</code></pre>
+
+<h3 class="ghibli-h3">2.2 Redis 缓存</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>理解 Redis 核心数据结构：String/Hash/Set/ZSet/Stream</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>知道什么时候用什么</td>
+  </tr>
+  <tr>
+    <td>实现玩家在线状态缓存（Redis Hash）</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>Session 切换到 Redis 存储</td>
+  </tr>
+  <tr>
+    <td>实现 MMR 排行榜（Redis Sorted Set）</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">0.5天</span></td>
+    <td>ZADD / ZRANK / ZREVRANGE</td>
+  </tr>
+  <tr>
+    <td>学习缓存策略：Cache-Aside、Write-Through、缓存雪崩/穿透</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>能分析各种缓存问题的解决方案</td>
+  </tr>
+</table>
+
+<h3 class="ghibli-h3">2.3 安全加固</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>实现 JWT Token 认证：签发 + 验证 + 刷新 + 黑名单</td>
+    <td><span class="ghibli-tag ghibli-tag-red">2天</span></td>
+    <td>替换当前简单 token</td>
+  </tr>
+  <tr>
+    <td>添加 TLS/mTLS：tonic 配置 TLS</td>
+    <td><span class="ghibli-tag ghibli-tag-red">1天</span></td>
+    <td>gRPC over TLS</td>
+  </tr>
+  <tr>
+    <td>理解游戏防作弊基础：服务器校验、输入合法性检查、行为分析</td>
+    <td><span class="ghibli-tag ghibli-tag-red">1天</span></td>
+    <td>在 Battle 模块加入输入校验</td>
+  </tr>
+  <tr>
+    <td>密码哈希：从明文改为 bcrypt/argon2</td>
+    <td><span class="ghibli-tag ghibli-tag-red">0.5天</span></td>
+    <td>安全存储密码</td>
+  </tr>
+</table>
+
+<div class="ghibli-callout good">
+  <strong>加分项：</strong>能够讨论「帧同步下如何防作弊」—— 服务器不执行游戏逻辑的情况下，可以校验输入频率、值域、连续帧的一致性。这是一个非常好的面试话题。
+</div>
+
+<!-- ============================================================ -->
+<!-- 阶段三 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="phase3">🦀 阶段三：Rust 进阶（第 5–6 周）</h2>
+<p>如果投递的是 Rust 岗位，这些是 <strong>必考</strong> 的。</p>
+
+<h3 class="ghibli-h3">3.1 异步深入</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>理解 <code>Future</code> trait 和状态机变换</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1天</span></td>
+    <td>能手写一个 Future</td>
+  </tr>
+  <tr>
+    <td>理解 <code>Pin</code> 和自引用结构</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1.5天</span></td>
+    <td>能解释为什么 async 需要 Pin</td>
+  </tr>
+  <tr>
+    <td>深入 <code>tokio::select!</code>、<code>Stream</code>、<code>tokio::spawn</code> 调度</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1天</span></td>
+    <td>能分析任务调度的坑</td>
+  </tr>
+  <tr>
+    <td>理解 <code>Arc&lt;Mutex&lt;&gt;&gt;</code> vs <code>tokio::sync::Mutex</code> 的选择</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">0.5天</span></td>
+    <td>知道什么时候用哪个</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">面试常考题</h4>
+<pre class="ghibli-pre"><code>"async fn 里可以持有 MutexGuard 跨 .await 吗？为什么不能？
+如果一定要跨 .await 怎么办？"
+
+"tokio::spawn 和 std::thread::spawn 的区别？
+什么时候用 spawn_blocking？"
+
+"Pin 解决的是什么问题？如果不 Pin 会发生什么？"</code></pre>
+
+<h3 class="ghibli-h3">3.2 Actor 模型</h3>
+
+<div class="ghibli-callout">
+  <strong>目标：</strong>能用 Actor 模型重构 Ares 的部分模块，并解释为什么
+</div>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>理解 Actor 模型：消息传递、无共享状态、监督树</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>能对比 Erlang/Akka/Actix</td>
+  </tr>
+  <tr>
+    <td>用 <code>tokio::mpsc</code> 实现一个简单的 Actor 框架</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">2天</span></td>
+    <td>PlayerActor / RoomActor</td>
+  </tr>
+  <tr>
+    <td>对比 Ares 当前的 <code>Arc&lt;RwLock&lt;&gt;&gt;</code> 模式 vs Actor 模式</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">0.5天</span></td>
+    <td>形成自己的观点</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">面试回答模板</h4>
+<pre class="ghibli-pre"><code>Ares 目前使用 Arc&lt;RwLock&lt;&gt;&gt; 的共享状态模式，对于低并发场景足够了。
+但如果我们把每个 Player 抽象为一个 Actor，消息驱动的方式有几个好处：
+1. 锁争用更少 —— 每个 Actor 独占自己的状态
+2. 天然的并发隔离 —— 不需要到处加锁
+3. 更好的容错 —— Actor 崩溃不影响其他 Actor
+
+不过 Actor 模式也有代价：消息队列可能堆积、调试更复杂。
+在 Ares 中，BattleServer 里的每个 BattleInstance 就是天然的 Actor 候选。</code></pre>
+
+<h3 class="ghibli-h3">3.3 性能优化</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>学习 Rust 性能分析工具：<code>cargo flamegraph</code>、<code>perf</code>、<code>criterion</code></td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>能给 Ares 出火焰图</td>
+  </tr>
+  <tr>
+    <td>优化热点路径：zero-copy（bytes crate）、减少 alloc</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>Battle tick 性能提升</td>
+  </tr>
+  <tr>
+    <td>理解内存布局优化：struct 字段重排、Box vs 内联、cache line</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>能讨论 CPU cache 友好的数据结构</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<!-- 阶段四 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="phase4">📡 阶段四：可观测性 & 运维（第 7–8 周）</h2>
+
+<h3 class="ghibli-h3">4.1 可观测性三支柱</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td><strong>Logging：</strong>在 Ares 全链路加入结构化日志（tracing + JSON format）</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1.5天</span></td>
+    <td>每条日志有 trace_id + span</td>
+  </tr>
+  <tr>
+    <td><strong>Metrics：</strong>接入 <code>metrics</code> crate + Prometheus exporter</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">2天</span></td>
+    <td>暴露 /metrics 端点</td>
+  </tr>
+  <tr>
+    <td><strong>Tracing：</strong>OpenTelemetry + Jaeger 分布式追踪</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">1.5天</span></td>
+    <td>跨服务 trace 传播</td>
+  </tr>
+  <tr>
+    <td>定义核心指标：QPS、延迟 P50/P99、错误率、连接数、匹配耗时</td>
+    <td><span class="ghibli-tag ghibli-tag-blue">0.5天</span></td>
+    <td>Grafana Dashboard JSON</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">必须监控的指标</h4>
+<pre class="ghibli-pre"><code>// Gateway 层
+ares_gateway_connections_active
+ares_gateway_messages_total{category="login|chat|match|battle"}
+ares_gateway_latency_seconds{quantile="0.5|0.95|0.99"}
+
+// Match Engine 层
+ares_match_pool_size{mode="moba5v5|world"}
+ares_match_duration_seconds{quantile="0.5|0.95|0.99"}
+ares_match_success_total
+
+// Battle 层
+ares_battle_ticks_total
+ares_battle_missed_inputs_total
+ares_battle_active_battles</code></pre>
+
+<h3 class="ghibli-h3">4.2 容器化 & CI/CD</h3>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>编写 Dockerfile（多阶段构建，alpine 基础镜像）</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>每个服务一个 Dockerfile</td>
+  </tr>
+  <tr>
+    <td>编写 docker-compose.yml：ares-gw + game + room + battle + etcd + mysql + redis</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>一键启动全集群</td>
+  </tr>
+  <tr>
+    <td>GitHub Actions CI：cargo check + clippy + test + build docker</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>push 自动跑 CI</td>
+  </tr>
+  <tr>
+    <td>理解 K8s 基础概念（Pod/Service/Deployment/ConfigMap）</td>
+    <td><span class="ghibli-tag ghibli-tag-orange">1天</span></td>
+    <td>能写出 Ares 的 K8s manifest</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<!-- 阶段五 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="phase5">🏛️ 阶段五：系统设计面试（第 9–12 周）</h2>
+
+<h3 class="ghibli-h3">5.1 面试白板题准备</h3>
+
+<div class="ghibli-callout">
+  <strong>核心能力：</strong>在 45 分钟内，在白板（或在线协作工具）上设计一个系统，展示架构思维
+</div>
+
+<h4 class="ghibli-h4">你必须能画的架构图</h4>
+<pre class="ghibli-pre"><code>┌──────────┐     ┌──────────┐     ┌──────────┐
+│  Client  │────▶│ Gateway  │────▶│  Game    │
+│ (Unity)  │ TCP │ (LB/路由)│gRPC │(Auth/Match)│
+└──────────┘     └────┬─────┘     └────┬─────┘
+                      │               │
+                 ┌────▼─────┐    ┌────▼─────┐
+                 │   Room   │    │  Battle  │
+                 │(房间管理)│───▶│(战斗引擎)│
+                 └──────────┘    └──────────┘
+                      │               │
+                 ┌────▼─────┐    ┌────▼─────┐
+                 │   etcd   │    │  Redis   │
+                 │(服务发现)│    │(缓存/排行榜)│
+                 └──────────┘    └──────────┘</code></pre>
+
+<h4 class="ghibli-h4">你必须能回答的问题类型</h4>
+
+<table class="ghibli-table">
+  <tr><th>问题</th><th>需要展示的知识</th></tr>
+  <tr>
+    <td>「设计一个支持百万同时在线的游戏服务器」</td>
+    <td>分层架构、水平扩展、连接管理、负载均衡</td>
+  </tr>
+  <tr>
+    <td>「帧同步 vs 状态同步，选哪个？为什么？」</td>
+    <td>延迟 vs 一致性 trade-off，不同游戏类型的匹配</td>
+  </tr>
+  <tr>
+    <td>「你的系统怎么处理节点宕机？」</td>
+    <td>心跳检测、故障转移、数据恢复、优雅降级</td>
+  </tr>
+  <tr>
+    <td>「Gateway 是瓶颈吗？怎么扩展？」</td>
+    <td>无状态设计、水平扩展、连接迁移、DNS/负载均衡</td>
+  </tr>
+  <tr>
+    <td>「怎么保证消息顺序？」</td>
+    <td>TCP 保证、业务层序列号、帧号排序、缓冲区</td>
+  </tr>
+  <tr>
+    <td>「数据库怎么撑住高并发写入？」</td>
+    <td>读写分离、分库分表、异步写入、合并写入</td>
+  </tr>
+</table>
+
+<h3 class="ghibli-h3">5.2 专题深度：帧同步</h3>
+
+<div class="ghibli-callout warn">
+  <strong>这是你的核心优势区。</strong>Ares 实现了 Lockstep，面试官会深挖。
+</div>
+
+<h4 class="ghibli-h4">必须掌握的概念（能画图 + 写伪代码）</h4>
+<ul>
+  <li><strong>Bucket Sync：</strong>为什么需要输入延迟缓冲区？buffer_size 怎么定？</li>
+  <li><strong>确定性：</strong>浮点数确定性问题，固定随机种子，排序一致性</li>
+  <li><strong>追帧：</strong>客户端落后时怎么追？快放 vs 跳帧</li>
+  <li><strong>断线重连：</strong>重连后怎么恢复到当前帧？（快照 + 增量帧）</li>
+  <li><strong>观战：</strong>观战者只需要帧数据，不需要发送输入</li>
+  <li><strong>录像回放：</strong>帧数据的存储和重放</li>
+</ul>
+
+<h4 class="ghibli-h4">面试回答模板</h4>
+<pre class="ghibli-pre"><code>我们使用 Bucket Sync 模式：客户端提前 N 帧发送输入，服务器在缓冲区
+收集后广播。这样即使网络抖动 100ms，在 20fps 下就是 2 帧的缓冲，
+玩家不会感觉到卡顿。
+
+我们设置 input_delay_frames = 3（20fps 下 = 150ms），这个值基于
+压测的 P99 延迟数据动态调整。
+
+如果某个玩家的输入迟迟不到，服务器填入空输入（上一帧的输入），
+保证帧循环不会停滞。这个设计的 trade-off 是：网络差的玩家会
+出现短暂的「角色不动」，但其他玩家不受影响。</code></pre>
+
+<h3 class="ghibli-h3">5.3 万人同屏</h3>
+
+<p>这是一个经典的面试题，展示你的 AOI + 空间划分知识。</p>
+
+<table class="ghibli-table">
+  <tr><th>子任务</th><th>时间</th><th>产出</th></tr>
+  <tr>
+    <td>学习空间划分算法：Grid / QuadTree / Spatial Hash</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>能画图对比三种算法</td>
+  </tr>
+  <tr>
+    <td>在 Ares 的 StateSyncEngine 中实现 Grid AOI（替换当前 O(n²)）</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">2天</span></td>
+    <td>AOI 查询从 O(n²) → O(1)</td>
+  </tr>
+  <tr>
+    <td>理解 Cross-Server AOI：跨节点的实体可见性怎么处理</td>
+    <td><span class="ghibli-tag ghibli-tag-purple">1天</span></td>
+    <td>能讨论边界跨越方案</td>
+  </tr>
+</table>
+
+<h4 class="ghibli-h4">面试回答模板</h4>
+<pre class="ghibli-pre"><code>对于万人同屏场景（如国战 MMO），我们用 Grid AOI 将地图划分为
+N×N 的格子。每个实体注册到所在格子，查询时只需检查 9 个相邻格子。
+
+为什么不用 QuadTree？—— Grid 在实体密集时更可预测，不会出现
+树不平衡的问题。QuadTree 适合实体稀疏分布的场景。
+
+更进一步，当单节点无法承载全部实体时，我们用 Cell-Server 模型：
+每个地图区域分配给不同的 BattleServer，边界区域的实体同步到
+相邻节点。这本质上是空间分片。</code></pre>
+
+<!-- ============================================================ -->
+<!-- 最终清单 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="checklist">✅ 最终面试清单</h2>
+
+<p>在投简历之前，逐条确认：</p>
+
+<h3 class="ghibli-h3">🔴 红线（必须做到）</h3>
+<ul>
+  <li>⭕ etcd 服务发现已落地到代码，可运行</li>
+  <li>⭕ MySQL Schema 已设计，有 migration 文件</li>
+  <li>⭕ JWT Token 认证替换了简单 token</li>
+  <li>⭕ Docker Compose 一键启动全集群</li>
+  <li>⭕ 能画出完整架构图并解释每个组件的职责</li>
+  <li>⭕ 能用中文/英文流畅描述项目（30 秒 elevator pitch）</li>
+</ul>
+
+<h3 class="ghibli-h3">🟡 加分项（做了更好）</h3>
+<ul>
+  <li>⭕ Prometheus + Grafana Dashboard</li>
+  <li>⭕ CI/CD pipeline（GitHub Actions）</li>
+  <li>⭕ Actor 模型重构至少一个模块</li>
+  <li>⭕ 火焰图性能分析 + 优化报告</li>
+  <li>⭕ 一个可演示的 Unity 客户端连接演示视频</li>
+  <li>⭕ K8s deployment manifest</li>
+  <li>⭕ 项目 README 有漂亮的架构图（mermaid）</li>
+</ul>
+
+<h3 class="ghibli-h3">🟢 锦上添花（如果还有时间）</h3>
+<ul>
+  <li>⭕ 在 Ares 之上做一个可玩的小游戏 Demo</li>
+  <li>⭕ 写一篇技术博客（帧同步原理 / Rust 异步深入）</li>
+  <li>⭕ 开源到 GitHub（带完整文档）</li>
+  <li>⭕ 录制一段技术分享视频</li>
+</ul>
+
+<h3 class="ghibli-h3">💬 30 秒项目介绍模板</h3>
+<div class="ghibli-callout good">
+<pre class="ghibli-pre"><code>我做了一个分布式游戏服务器框架叫 Ares，用 Rust 写的。
+它是 5 个微服务组成的分布式系统：Gateway 负责 TCP 接入和消息路由，
+Game/ Match 负责登录和 ELO 匹配，Room 管理房间生命周期和 Battle 分配，
+Battle 实现了三种同步模式——Lockstep 帧同步、StateSync 状态同步和
+Hybrid 混合模式。
+
+整个项目 7 个 crate，36 个集成测试全部通过，压力测试下零超时零错误。
+我负责全栈：从 Proto 协议设计、分布式服务发现、匹配算法、到 Unity
+客户端 SDK。这个项目帮我深入理解了分布式系统的一致性模型、游戏同步
+的核心 trade-off，以及 Rust 异步生态的实际应用。</code></pre>
+</div>
+
+<!-- ============================================================ -->
+<!-- 资源 -->
+<!-- ============================================================ -->
+<h2 class="ghibli-h2" id="resources">📚 推荐资源</h2>
+
+<h3 class="ghibli-h3">分布式系统</h3>
+<ul>
+  <li>📖 <strong>《Designing Data-Intensive Applications》</strong>（DDIA）— 必读</li>
+  <li>🎥 <a href="https://raft.github.io/" target="_blank">Raft 可视化</a> — 必须玩懂</li>
+  <li>📄 <a href="https://etcd.io/docs/latest/learning/" target="_blank">etcd 官方文档</a></li>
+  <li>🎥 MIT 6.824 分布式系统课程</li>
+</ul>
+
+<h3 class="ghibli-h3">Rust 进阶</h3>
+<ul>
+  <li>📖 <strong>《Rust for Rustaceans》</strong> — 中级必读</li>
+  <li>📖 <strong>《Async Rust》</strong> — 异步深入</li>
+  <li>📖 <a href="https://tokio.rs/tokio/tutorial" target="_blank">Tokio 官方教程</a></li>
+  <li>🎥 Jon Gjengset 的 Crust of Rust 系列（YouTube）</li>
+</ul>
+
+<h3 class="ghibli-h3">游戏服务器</h3>
+<ul>
+  <li>📖 <strong>《网络游戏服务器编程》</strong> — 基础入门</li>
+  <li>📄 <a href="https://gafferongames.com/" target="_blank">Gaffer On Games</a> — 帧同步/网络物理必读</li>
+  <li>📄 网易 / Krafton 的游戏服务器技术博客</li>
+  <li>📄 <a href="https://www.gabrielgambetta.com/client-server-game-architecture.html" target="_blank">Gabriel Gambetta: Client-Server Game Architecture</a></li>
+</ul>
+
+<h3 class="ghibli-h3">系统设计面试</h3>
+<ul>
+  <li>📖 <strong>《System Design Interview》</strong>（Alex Xu）</li>
+  <li>🌐 <a href="https://github.com/donnemartin/system-design-primer" target="_blank">System Design Primer</a></li>
+  <li>🎥 System Design Interview 频道（YouTube）</li>
+</ul>
+
+<hr class="ghibli-hr">
+<p class="ghibli-footer">
+  最后更新：2026 年 5 月 · 为 Ares 项目量身定制 · 祝面试顺利 🚀
+</p>
+
+</main>
+
+<button class="ghibli-back-to-top" id="back-to-top" title="回到顶部">↑</button>
+
+<script>
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', function() {
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+const btn = document.getElementById('back-to-top');
+window.addEventListener('scroll', () => { btn.classList.toggle('visible', window.scrollY > 500); });
+btn.addEventListener('click', () => window.scrollTo({top: 0, behavior: 'smooth'}));
+</script>
+
+</body>
+</html>
