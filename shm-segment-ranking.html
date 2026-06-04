@@ -106,16 +106,108 @@
 <span class="p">}</span>
 </code></pre></div>
 
-<p><strong>为什么用高位而不是取模？</strong></p>
-<div class="codehilite"><pre><span></span><code>取模分段：   segment = hash % 1024
-             → 需要除法指令（~30 CPU cycles）
-
-位运算分段： segment = hash &gt;&gt; 54
-             → 单条移位指令（~1 CPU cycle）
-             → 30 倍的指令级优化
+<p><strong>为什么用高位而不是取模？—— 三层递进分析</strong></p>
+<p>有三种做法可以把一个 hash 值映射到 1024 个分段：</p>
+<div class="codehilite"><pre><span></span><code>做法 A（取模）：  segment = hash % 1024
+做法 B（低掩码）：segment = hash &amp; 0x3FF      (取低 10 位)
+做法 C（高位移）：segment = hash &gt;&gt; 54        (取高 10 位)
 </code></pre></div>
 
-<p>而且高位分布更均匀。xxhash 的 avalanche 效应保证了高位和低位都一样随机，但高位右移比低位掩码多一次操作，实际性能无差别——<strong>但省掉除法是关键</strong>。</p>
+<hr />
+<p><strong>第一层：为什么不用取模（做法 A）？—— 指令级差距</strong></p>
+<p><code>% 1024</code> 在 CPU 上是<strong>除法指令 <code>div</code></strong>，一条 <code>div</code> 要 ~30 个 CPU cycle：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">; 取模：慢——需要 div 指令</span>
+<span class="nf">mov</span><span class="w">  </span><span class="no">rax</span><span class="p">,</span><span class="w"> </span><span class="no">hash_value</span>
+<span class="nf">mov</span><span class="w">  </span><span class="no">rcx</span><span class="p">,</span><span class="w"> </span><span class="mi">1024</span>
+<span class="nf">xor</span><span class="w">  </span><span class="no">rdx</span><span class="p">,</span><span class="w"> </span><span class="no">rdx</span>
+<span class="nf">div</span><span class="w">  </span><span class="no">rcx</span><span class="w">        </span><span class="c1">; ← 这条指令 ~30 cycles</span>
+<span class="c1">; 结果在 rdx（余数）</span>
+</code></pre></div>
+
+<p>而 <code>&amp; 0x3FF</code> 和 <code>&gt;&gt; 54</code> 都是<strong>单 cycle 指令</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">; 低掩码：快</span>
+<span class="nf">and</span><span class="w">  </span><span class="no">rax</span><span class="p">,</span><span class="w"> </span><span class="mi">0x3FF</span><span class="w">    </span><span class="c1">; 1 cycle</span>
+
+<span class="c1">; 高位移：也快</span>
+<span class="nf">shr</span><span class="w">  </span><span class="no">rax</span><span class="p">,</span><span class="w"> </span><span class="mi">54</span><span class="w">       </span><span class="c1">; 1 cycle</span>
+</code></pre></div>
+
+<p><strong>30 cycle vs 1 cycle → 30 倍差距。</strong> 每秒 50 万次分段寻址，这就是 1500 万 cycle vs 50 万 cycle 的区别——实打实的 CPU 时间。</p>
+<hr />
+<p><strong>第二层：高位和低位有区别吗？—— Avalanche 效应</strong></p>
+<p><strong>从随机性角度，没有区别。</strong> 这就是 xxhash 的 avalanche 效应。</p>
+<p>Avalanche 效应指的是：<strong>输入改变 1 个 bit，输出约一半的 bit 会翻转。</strong> 这意味着 hash 值的每一位都是输入所有位的"混合产物"——高位和低位一样随机：</p>
+<div class="codehilite"><pre><span></span><code>输入: player_id = 0x0000000000000001
+hash:  0xA7F3_9B2C_81D4_E506
+       ^^^^^^^^ ^^^^^^^^
+       高位      低位
+
+输入: player_id = 0x0000000000000002  
+hash:  0x3C81_7F2E_D915_A640
+       ← 高位和后一位完全不同，和低位一样均匀 →
+</code></pre></div>
+
+<p>所以从<strong>分布均匀性</strong>角度，取高位 <code>hash &gt;&gt; 54</code> 和取低位 <code>hash &amp; 0x3FF</code> 效果一样——都不产生聚集。</p>
+<hr />
+<p><strong>第三层：那为什么选高位？—— 两个工程红利</strong></p>
+<p>做法 B（低掩码）和做法 C（高位移）都是 1 cycle，性能无差别。选高位有两个实际原因：</p>
+<p><strong>红利 1：与段内排序键天然解耦</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 高位做分段 ID</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">segment_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">hash</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">54</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">   </span><span class="c1">// 用高 10 位 → 决定去哪个分段</span>
+
+<span class="c1">// 低位做段内排序键</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">local_key</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x003F_FFFF_FFFF_FFFF</span><span class="p">;</span><span class="w">  </span><span class="c1">// 用低 54 位 → 段内跳表排序</span>
+</code></pre></div>
+
+<p>高位和低位各司其职、互不干扰。如果用低位做分段（<code>hash &amp; 0x3FF</code>），那段内排序键就只能取高位，还要右移回去——多一次操作，虽然也是 1 cycle，但没必要。</p>
+<p><strong>红利 2：顺次分布，Top-K 查询天然有序</strong></p>
+<p>取高位的分段方式产生的是<strong>顺次分布</strong>：</p>
+<div class="codehilite"><pre><span></span><code>取高位（&gt;&gt;）：hash 的数值范围被均匀切成 1024 段
+
+  分段 0:   hash 范围 [0x0000_0000_0000_0000, 0x003F_FFFF_FFFF_FFFF]
+  分段 1:   hash 范围 [0x0040_0000_0000_0000, 0x007F_FFFF_FFFF_FFFF]
+  ...
+  分段 1023: hash 范围 [0xFFC0_0000_0000_0000, 0xFFFF_FFFF_FFFF_FFFF]
+
+  → 分段 ID 越大，hash 值越大 → 高分段天然 = 高分区间的玩家
+
+取低位（&amp;）：hash 值被交织分配到各分段
+
+  分段 0: hash 以 ...0000000000 结尾的
+  分段 1: hash 以 ...0000000001 结尾的
+  ...
+  → 所有分段覆盖整个数值范围，没有高低之分
+</code></pre></div>
+
+<p>这意味着全局 Top-K 查询时：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 取高位：从最高分段往低分段遍历，天然按分数降序</span>
+<span class="c1">// 不需要额外的全局归并排序！</span>
+<span class="k">for</span><span class="w"> </span><span class="n">seg_id</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="n">SEGMENT_COUNT</span><span class="p">).</span><span class="n">rev</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">collect_from_segment</span><span class="p">(</span><span class="n">seg_id</span><span class="p">,</span><span class="w"> </span><span class="n">remaining</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// 取低位：所有分段交织覆盖整个分数范围</span>
+<span class="c1">// Top-K 时必须对所有 1024 个分段做 K 路归并 → 多一轮 O(K × log 1024) 的排序</span>
+</code></pre></div>
+
+<hr />
+<p><strong>总结：一条指令背后的三层决策</strong></p>
+<div class="codehilite"><pre><span></span><code>问题：怎么把 64-bit hash 映射到 1024 分段？
+
+├── 用取模 hash % 1024？
+│   └── ❌ div 指令 30 cycles，慢 30 倍
+│
+├── 用低掩码 hash &amp; 0x3FF？
+│   ├── ✅ and 指令 1 cycle
+│   └── ❌ 分段 ID 和段内排序键争抢同几位，Top-K 需要归并
+│
+└── 用高位移 hash &gt;&gt; 54？
+    ├── ✅ shr 指令 1 cycle
+    ├── ✅ 高位分段、低位排序，各不冲突
+    └── ✅ 顺次分布，Top-K 天然有序
+</code></pre></div>
+
+<p><strong>省掉除法是首要动机，高位顺次分布是白捡的红利。</strong></p>
 <hr />
 <h2 id="三、共享内存布局">三、共享内存布局</h2>
 <div class="codehilite"><pre><span></span><code><span class="n">mmap</span><span class="w"> </span><span class="n">文件内存布局</span><span class="err">（</span><span class="n">假设</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="n">分段</span><span class="err">）</span>
