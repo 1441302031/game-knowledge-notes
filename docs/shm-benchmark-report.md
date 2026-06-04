@@ -383,7 +383,287 @@ cargo run --release -- --players 50000000 --writers 32 --readers 32 --duration 6
 
 ---
 
-## 八、代码仓库
+## 八、压测时服务器资源占用（实时监控数据）
+
+### 8.1 监控命令
+
+```bash
+# 压测运行期间（另一个终端）同时执行以下监控：
+
+# CPU 使用率（每秒采样）
+mpstat 1 10
+
+# 内存使用
+watch -n 1 'free -m'
+
+# 进程级详细指标
+ps aux --sort=-%cpu | grep bench
+
+# 系统级上下文切换 + 运行队列
+vmstat 1 10
+```
+
+### 8.2 空闲基线（压测前）
+
+| 指标 | 值 |
+|------|-----|
+| CPU usr | 1.0% |
+| CPU sys | 0.0% |
+| CPU idle | **98.5%** |
+| CPU irq | 0.5% |
+| 内存 used | 1,146 MB |
+| 内存 available | 724 MB |
+| 上下文切换 | ~1,000/s |
+| 运行队列 | 0-1 |
+
+### 8.3 压测中实测数据
+
+**CPU（mpstat 每秒采样）**：
+
+```
+时间      CPU  %usr    %sys  %irq   %idle
+16:15:01  all  97.03   0.99  1.98    0.00
+16:15:02  all  97.03   0.00  2.97    0.00
+16:15:03  all  97.50   0.50  2.00    0.00
+─────────────────────────────────────────
+平均      all  97.19   0.50  2.32    0.00
+```
+
+- **CPU 几乎打满**：97.2% 用户态 + 0.5% 内核态 + 2.3% 中断 = ~100%
+- **idle = 0%**：2 vCPU 被 8 个压测线程完全占满，无空闲周期
+- **中断占比 2.3%**：主要是线程调度引发的中断（8 个线程争抢 2 个核）
+
+**内存（free -m）**：
+
+```
+              压测前      压测中      增量
+Mem used      1,146 MB    1,171 MB    +25 MB
+Mem free        598 MB      572 MB    -26 MB
+available       724 MB      699 MB    -25 MB
+Swap              0 MB        0 MB      0 MB
+```
+
+- **物理内存增加仅 25 MB**：进程 RSS 约 19 MB，加上 BTreeMap 的 100K 条数据（~4.8 MB）和 Rust 分配器开销
+- **无 swap**：全部在物理内存中，无页面换出
+
+**进程级（ps aux）**：
+
+```
+USER  PID   %CPU %MEM   VSZ    RSS   STAT
+admin 64783 193  1.0   273584 19500 Sl
+                    ↑             ↑
+                (8线程争2核)   (19 MB 物理内存)
+```
+
+| 指标 | 值 | 说明 |
+|------|-----|------|
+| %CPU | 193% | 约占用 2 个核的 97%（接近理论最大值 200%） |
+| %MEM | 1.0% | 占 1.8GB 总量中的 1% |
+| VSZ | 273 MB | 虚拟地址空间（含 mmap 预留、库映射等，非实际占用） |
+| RSS | 19 MB | 真正物理内存占用（代码 630KB + 堆 18MB） |
+| STAT | Sl | 多线程（l）+ 睡眠可中断（S） |
+
+**系统级（vmstat 每秒采样）**：
+
+```
+ r   b   free    buff   cache   cs      cpu:us  cpu:sy  cpu:id
+11   0  585208  16292  258912  2451    96      4       0
+ 3   0  585020  16292  259028   940    96      4       0
+11   0  584768  16292  259028   900    97      3       0
+─────────────────────────────────────────────────────────
+平均 8   0  585000  16292  258956  1430    96.3    3.7     0
+```
+
+| 指标 | 值 | 含义 |
+|------|-----|------|
+| **r（运行队列）** | 平均 8，峰值 11 | 8 个线程在抢 2 个 CPU，6-9 个线程排队等待 |
+| **b（阻塞队列）** | 0 | 无 IO 等待，纯 CPU 密集 |
+| **cs（上下文切换）** | 平均 1,430/s | 每秒 1430 次线程切换（2 vCPU/8 线程，每核 ~715 次/秒） |
+| **free 变化** | 585,208 → 584,768 | 仅降 440 KB，内存分配稳定 |
+| **cpu:us** | 96.3% | 用户态占比（压测逻辑） |
+| **cpu:sy** | 3.7% | 内核态占比（系统调用 + 线程调度） |
+
+### 8.4 资源占用总结
+
+```
+压测前 → 压测中 资源变化：
+
+CPU:   idle 98.5% → idle 0%       (+98.5% 增量)
+       仅 8 线程就吃满 2 vCPU
+
+内存:  1146 MB → 1171 MB          (+25 MB 增量, +2.2%)
+       几乎无增长——BTreeMap 100K 条仅 4.8 MB
+
+IO:    无磁盘 IO
+       纯内存操作，vmstat 的 bo/bi 均为 0
+
+网络:  无网络 IO
+       纯本地压测
+
+瓶颈:  CPU（2 vCPU 是绝对瓶颈）
+       在你的 265K（20C）上相同负载 CPU 利用率仅 ~10%
+```
+
+---
+
+## 九、本地部署完整指南（Intel 265K + 48GB + Windows）
+
+### 9.1 环境准备
+
+**必装软件**：
+
+| 软件 | 版本要求 | 下载 | 验证命令 |
+|------|---------|------|---------|
+| Rust 工具链 | ≥ 1.70 | [rustup.rs](https://rustup.rs) | `rustc --version` |
+| Git | 任意 | [git-scm.com](https://git-scm.com) | `git --version` |
+| (可选) 性能监控 | — | 任务管理器 或 HWiNFO | — |
+
+**Rust 安装**（首次）：
+
+```powershell
+# PowerShell（管理员）
+winget install Rustlang.Rustup
+# 或直接下载 rustup-init.exe: https://rustup.rs
+
+# 安装后验证
+rustc --version   # 应显示 ≥ 1.70
+cargo --version
+```
+
+### 9.2 获取代码
+
+**方式 A：从压缩包解压（推荐，不需要 Git）**
+
+```powershell
+# 把 shm-rank-bench.tar.gz 复制到你的 Windows 机器
+
+# PowerShell:
+tar -xzf shm-rank-bench.tar.gz
+cd shm-rank-bench
+```
+
+**方式 B：从 GitHub 克隆**
+
+```powershell
+git clone https://github.com/1441302031/game-knowledge-notes.git
+# 代码在 game-knowledge-notes/ 下，但没有 shm-rank-bench 目录
+# 所以建议用方式 A：下载压缩包
+```
+
+**方式 C：新建项目复制源码**
+
+```powershell
+# 如果以上都不方便，手动创建：
+
+cargo new shm-rank-bench
+cd shm-rank-bench
+
+# 编辑 Cargo.toml，加入依赖：
+# [dependencies]
+# xxhash-rust = { version = "0.8", features = ["xxh3"] }
+# rand = "0.8"
+
+# 然后把 lib.rs 和 bench.rs 放到 src/ 下
+```
+
+### 9.3 编译
+
+```powershell
+cd shm-rank-bench
+cargo build --release
+```
+
+首次编译会下载依赖（xxhash-rust, rand），大约 1-2 分钟。之后增量编译 < 5 秒。
+
+编译成功后检查：
+
+```powershell
+ls -lh target/release/bench.exe
+# 应该看到 bench.exe (~1 MB)
+```
+
+### 9.4 测试矩阵
+
+按这个顺序跑，每轮记录结果：
+
+```powershell
+# 第 1 轮：小规模验证（确保能跑通）
+cargo run --release -- --players 100000 --writers 4 --readers 4 --duration 10
+
+# 第 2 轮：中等规模（200 万玩家，8+8 线程）
+cargo run --release -- --players 2000000 --writers 8 --readers 8 --duration 20
+
+# 第 3 轮：大规模（1000 万玩家，16+16 线程）
+cargo run --release -- --players 10000000 --writers 16 --readers 16 --duration 30
+
+# 第 4 轮：极限规模（5000 万玩家，32+32 线程）
+cargo run --release -- --players 50000000 --writers 32 --readers 32 --duration 60
+
+# 第 5 轮：纯写测试（32 写 + 0 读，测量写吞吐上限）
+cargo run --release -- --players 10000000 --writers 32 --readers 0 --duration 30
+```
+
+### 9.5 测试时同时监控
+
+**Windows 任务管理器**（性能标签页）：
+- CPU 利用率（你应该能看到 20 个逻辑核心的负载分布）
+- 内存占用（32 线程 + 千万级数据预期 ~1.5-3 GB）
+
+**PowerShell 监控脚本**（保存为 `monitor.ps1`）：
+
+```powershell
+while ($true) {
+    $proc = Get-Process -Name "bench" -ErrorAction SilentlyContinue
+    if ($proc) {
+        $cpu = ($proc.CPU).ToString("F1")
+        $mem = [math]::Round($proc.WorkingSet64 / 1MB, 1)
+        Write-Host "$(Get-Date -Format 'HH:mm:ss') CPU=$cpu% MEM=$mem MB"
+    }
+    Start-Sleep -Seconds 2
+}
+```
+
+### 9.6 预期结果（265K 机器）
+
+基于 20 核心 + 48GB 的硬件，与云服务器（2 vCPU）的对比预测：
+
+| 场景 | 云服务器 (2vCPU) | 265K (20C) 预期 | 提升 |
+|------|:---------------:|:--------------:|:----:|
+| 100K 写 QPS | 1,715,804 | **8,000,000+** | ~5× |
+| 100K 写延迟 avg | 0.92 μs | **< 0.5 μs** | ~2× |
+| 1000万 写 QPS | — | **6,000,000+** | — |
+| 5000万 写 QPS | — | **4,000,000+** | — |
+| 1000万 内存 | — | **~800 MB** | — |
+| 5000万 内存 | — | **~3.5 GB** | — |
+
+**为什么 265K 上不是简单的 10× 提升？**
+
+1. **内存带宽上限**：20 核同时写 BTreeMap，48GB DDR5 理论带宽 ~60 GB/s。每核分到 ~3 GB/s，足够。但 BTreeMap 的堆分配（malloc/free）在多线程下会成为瓶颈
+2. **锁竞争随核心数非线性增长**：1024 分段在 2 核下几乎无竞争（1024:2），在 16 写线程下竞争率约 16/1024 ≈ 1.6%，仍很低
+3. **NUMA**：265K 是单 die，无 NUMA 跨节点开销
+
+### 9.7 数据记录模板
+
+每轮跑完后，复制 JSON 输出填入：
+
+```
+第 N 轮: --players X --writers Y --readers Z --duration D
+─────────────────────────────────────────────────────
+CPU 利用率:    ____%
+内存占用:      ____ MB
+写 QPS:        ____
+读 QPS:        ____
+写延迟 avg:    ____ μs
+读延迟 avg:    ____ μs
+写延迟 max:    ____ μs
+─────────────────────────────────────────────────────
+JSON:
+(复制终端输出的 [  ... ] 整行)
+```
+
+---
+
+## 十、代码仓库
 
 ```
 shm-rank-bench/
@@ -395,5 +675,7 @@ shm-rank-bench/
 ```
 
 **总代码量**：~550 行 Rust（含注释）
+
+**压缩包**：`/home/admin/shm-rank-bench.tar.gz`（36 MB，含 target/ 编译产物，解压即用）
 
 **编译后大小**：630 KB（release + thin LTO）

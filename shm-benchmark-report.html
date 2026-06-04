@@ -17,7 +17,9 @@
 <li style="margin-left:12px"><a href="#五、数据汇总与分析">五、数据汇总与分析</a></li>
 <li style="margin-left:12px"><a href="#六、实验结果置信度">六、实验结果置信度</a></li>
 <li style="margin-left:12px"><a href="#七、在你的-265k-上跑的建议参数">七、在你的 265K 上跑的建议参数</a></li>
-<li style="margin-left:12px"><a href="#八、代码仓库">八、代码仓库</a></li></ul>
+<li style="margin-left:12px"><a href="#八、压测时服务器资源占用-实时监控数据">八、压测时服务器资源占用（实时监控数据）</a></li>
+<li style="margin-left:12px"><a href="#九、本地部署完整指南-intel-265k-48gb-windows">九、本地部署完整指南（Intel 265K + 48GB + Windows）</a></li>
+<li style="margin-left:12px"><a href="#十、代码仓库">十、代码仓库</a></li></ul>
 </nav>
 <main class="ghibli-main">
 <h1 id="排行榜分段锁-demo-压测报告-完整实验记录">排行榜分段锁 Demo 压测报告（完整实验记录）</h1>
@@ -557,7 +559,397 @@ cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"
 - 全局锁写 QPS：约 <strong>5-8 万/秒</strong>（所有核心争抢同一把锁，上限受限于单核性能）
 - 分段锁优势：从 144× 可能扩大到 <strong>200×+</strong></p>
 <hr />
-<h2 id="八、代码仓库">八、代码仓库</h2>
+<h2 id="八、压测时服务器资源占用-实时监控数据">八、压测时服务器资源占用（实时监控数据）</h2>
+<h3 id="8-1-监控命令">8.1 监控命令</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 压测运行期间（另一个终端）同时执行以下监控：</span>
+
+<span class="c1"># CPU 使用率（每秒采样）</span>
+mpstat<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>
+
+<span class="c1"># 内存使用</span>
+watch<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="s1">&#39;free -m&#39;</span>
+
+<span class="c1"># 进程级详细指标</span>
+ps<span class="w"> </span>aux<span class="w"> </span>--sort<span class="o">=</span>-%cpu<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>bench
+
+<span class="c1"># 系统级上下文切换 + 运行队列</span>
+vmstat<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+
+<h3 id="8-2-空闲基线-压测前">8.2 空闲基线（压测前）</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU usr</td>
+<td>1.0%</td>
+</tr>
+<tr>
+<td>CPU sys</td>
+<td>0.0%</td>
+</tr>
+<tr>
+<td>CPU idle</td>
+<td><strong>98.5%</strong></td>
+</tr>
+<tr>
+<td>CPU irq</td>
+<td>0.5%</td>
+</tr>
+<tr>
+<td>内存 used</td>
+<td>1,146 MB</td>
+</tr>
+<tr>
+<td>内存 available</td>
+<td>724 MB</td>
+</tr>
+<tr>
+<td>上下文切换</td>
+<td>~1,000/s</td>
+</tr>
+<tr>
+<td>运行队列</td>
+<td>0-1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="8-3-压测中实测数据">8.3 压测中实测数据</h3>
+<p><strong>CPU（mpstat 每秒采样）</strong>：</p>
+<div class="codehilite"><pre><span></span><code>时间      CPU  %usr    %sys  %irq   %idle
+16:15:01  all  97.03   0.99  1.98    0.00
+16:15:02  all  97.03   0.00  2.97    0.00
+16:15:03  all  97.50   0.50  2.00    0.00
+─────────────────────────────────────────
+平均      all  97.19   0.50  2.32    0.00
+</code></pre></div>
+
+<ul>
+<li><strong>CPU 几乎打满</strong>：97.2% 用户态 + 0.5% 内核态 + 2.3% 中断 = ~100%</li>
+<li><strong>idle = 0%</strong>：2 vCPU 被 8 个压测线程完全占满，无空闲周期</li>
+<li><strong>中断占比 2.3%</strong>：主要是线程调度引发的中断（8 个线程争抢 2 个核）</li>
+</ul>
+<p><strong>内存（free -m）</strong>：</p>
+<div class="codehilite"><pre><span></span><code>              压测前      压测中      增量
+Mem used      1,146 MB    1,171 MB    +25 MB
+Mem free        598 MB      572 MB    -26 MB
+available       724 MB      699 MB    -25 MB
+Swap              0 MB        0 MB      0 MB
+</code></pre></div>
+
+<ul>
+<li><strong>物理内存增加仅 25 MB</strong>：进程 RSS 约 19 MB，加上 BTreeMap 的 100K 条数据（~4.8 MB）和 Rust 分配器开销</li>
+<li><strong>无 swap</strong>：全部在物理内存中，无页面换出</li>
+</ul>
+<p><strong>进程级（ps aux）</strong>：</p>
+<div class="codehilite"><pre><span></span><code>USER  PID   %CPU %MEM   VSZ    RSS   STAT
+admin 64783 193  1.0   273584 19500 Sl
+                    ↑             ↑
+                (8线程争2核)   (19 MB 物理内存)
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>%CPU</td>
+<td>193%</td>
+<td>约占用 2 个核的 97%（接近理论最大值 200%）</td>
+</tr>
+<tr>
+<td>%MEM</td>
+<td>1.0%</td>
+<td>占 1.8GB 总量中的 1%</td>
+</tr>
+<tr>
+<td>VSZ</td>
+<td>273 MB</td>
+<td>虚拟地址空间（含 mmap 预留、库映射等，非实际占用）</td>
+</tr>
+<tr>
+<td>RSS</td>
+<td>19 MB</td>
+<td>真正物理内存占用（代码 630KB + 堆 18MB）</td>
+</tr>
+<tr>
+<td>STAT</td>
+<td>Sl</td>
+<td>多线程（l）+ 睡眠可中断（S）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>系统级（vmstat 每秒采样）</strong>：</p>
+<div class="codehilite"><pre><span></span><code> r   b   free    buff   cache   cs      cpu:us  cpu:sy  cpu:id
+11   0  585208  16292  258912  2451    96      4       0
+ 3   0  585020  16292  259028   940    96      4       0
+11   0  584768  16292  259028   900    97      3       0
+─────────────────────────────────────────────────────────
+平均 8   0  585000  16292  258956  1430    96.3    3.7     0
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>r（运行队列）</strong></td>
+<td>平均 8，峰值 11</td>
+<td>8 个线程在抢 2 个 CPU，6-9 个线程排队等待</td>
+</tr>
+<tr>
+<td><strong>b（阻塞队列）</strong></td>
+<td>0</td>
+<td>无 IO 等待，纯 CPU 密集</td>
+</tr>
+<tr>
+<td><strong>cs（上下文切换）</strong></td>
+<td>平均 1,430/s</td>
+<td>每秒 1430 次线程切换（2 vCPU/8 线程，每核 ~715 次/秒）</td>
+</tr>
+<tr>
+<td><strong>free 变化</strong></td>
+<td>585,208 → 584,768</td>
+<td>仅降 440 KB，内存分配稳定</td>
+</tr>
+<tr>
+<td><strong>cpu:us</strong></td>
+<td>96.3%</td>
+<td>用户态占比（压测逻辑）</td>
+</tr>
+<tr>
+<td><strong>cpu:sy</strong></td>
+<td>3.7%</td>
+<td>内核态占比（系统调用 + 线程调度）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="8-4-资源占用总结">8.4 资源占用总结</h3>
+<div class="codehilite"><pre><span></span><code>压测前 → 压测中 资源变化：
+
+CPU:   idle 98.5% → idle 0%       (+98.5% 增量)
+       仅 8 线程就吃满 2 vCPU
+
+内存:  1146 MB → 1171 MB          (+25 MB 增量, +2.2%)
+       几乎无增长——BTreeMap 100K 条仅 4.8 MB
+
+IO:    无磁盘 IO
+       纯内存操作，vmstat 的 bo/bi 均为 0
+
+网络:  无网络 IO
+       纯本地压测
+
+瓶颈:  CPU（2 vCPU 是绝对瓶颈）
+       在你的 265K（20C）上相同负载 CPU 利用率仅 ~10%
+</code></pre></div>
+
+<hr />
+<h2 id="九、本地部署完整指南-intel-265k-48gb-windows">九、本地部署完整指南（Intel 265K + 48GB + Windows）</h2>
+<h3 id="9-1-环境准备">9.1 环境准备</h3>
+<p><strong>必装软件</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>软件</th>
+<th>版本要求</th>
+<th>下载</th>
+<th>验证命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rust 工具链</td>
+<td>≥ 1.70</td>
+<td><a href="https://rustup.rs">rustup.rs</a></td>
+<td><code>rustc --version</code></td>
+</tr>
+<tr>
+<td>Git</td>
+<td>任意</td>
+<td><a href="https://git-scm.com">git-scm.com</a></td>
+<td><code>git --version</code></td>
+</tr>
+<tr>
+<td>(可选) 性能监控</td>
+<td>—</td>
+<td>任务管理器 或 HWiNFO</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rust 安装</strong>（首次）：</p>
+<div class="codehilite"><pre><span></span><code><span class="c"># PowerShell（管理员）</span>
+<span class="n">winget</span> <span class="n">install</span> <span class="n">Rustlang</span><span class="p">.</span><span class="n">Rustup</span>
+<span class="c"># 或直接下载 rustup-init.exe: https://rustup.rs</span>
+
+<span class="c"># 安装后验证</span>
+<span class="n">rustc</span> <span class="p">-</span><span class="n">-version</span>   <span class="c"># 应显示 ≥ 1.70</span>
+<span class="n">cargo</span> <span class="p">-</span><span class="n">-version</span>
+</code></pre></div>
+
+<h3 id="9-2-获取代码">9.2 获取代码</h3>
+<p><strong>方式 A：从压缩包解压（推荐，不需要 Git）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c"># 把 shm-rank-bench.tar.gz 复制到你的 Windows 机器</span>
+
+<span class="c"># PowerShell:</span>
+<span class="n">tar</span> <span class="n">-xzf</span> <span class="n">shm-rank-bench</span><span class="p">.</span><span class="n">tar</span><span class="p">.</span><span class="n">gz</span>
+<span class="nb">cd </span><span class="n">shm-rank-bench</span>
+</code></pre></div>
+
+<p><strong>方式 B：从 GitHub 克隆</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">://</span><span class="n">github</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">1441302031</span><span class="p">/</span><span class="n">game-knowledge-notes</span><span class="p">.</span><span class="n">git</span>
+<span class="c"># 代码在 game-knowledge-notes/ 下，但没有 shm-rank-bench 目录</span>
+<span class="c"># 所以建议用方式 A：下载压缩包</span>
+</code></pre></div>
+
+<p><strong>方式 C：新建项目复制源码</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c"># 如果以上都不方便，手动创建：</span>
+
+<span class="n">cargo</span> <span class="n">new</span> <span class="n">shm-rank-bench</span>
+<span class="nb">cd </span><span class="n">shm-rank-bench</span>
+
+<span class="c"># 编辑 Cargo.toml，加入依赖：</span>
+<span class="c"># [dependencies]</span>
+<span class="c"># xxhash-rust = { version = &quot;0.8&quot;, features = [&quot;xxh3&quot;] }</span>
+<span class="c"># rand = &quot;0.8&quot;</span>
+
+<span class="c"># 然后把 lib.rs 和 bench.rs 放到 src/ 下</span>
+</code></pre></div>
+
+<h3 id="9-3-编译">9.3 编译</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd </span><span class="n">shm-rank-bench</span>
+<span class="n">cargo</span> <span class="n">build</span> <span class="p">-</span><span class="n">-release</span>
+</code></pre></div>
+
+<p>首次编译会下载依赖（xxhash-rust, rand），大约 1-2 分钟。之后增量编译 &lt; 5 秒。</p>
+<p>编译成功后检查：</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">ls </span><span class="n">-lh</span> <span class="n">target</span><span class="p">/</span><span class="n">release</span><span class="p">/</span><span class="n">bench</span><span class="p">.</span><span class="n">exe</span>
+<span class="c"># 应该看到 bench.exe (~1 MB)</span>
+</code></pre></div>
+
+<h3 id="9-4-测试矩阵">9.4 测试矩阵</h3>
+<p>按这个顺序跑，每轮记录结果：</p>
+<div class="codehilite"><pre><span></span><code><span class="c"># 第 1 轮：小规模验证（确保能跑通）</span>
+<span class="n">cargo</span> <span class="n">run</span> <span class="p">-</span><span class="n">-release</span> <span class="p">--</span> <span class="p">-</span><span class="n">-players</span> <span class="n">100000</span> <span class="p">-</span><span class="n">-writers</span> <span class="n">4</span> <span class="p">-</span><span class="n">-readers</span> <span class="n">4</span> <span class="p">-</span><span class="n">-duration</span> <span class="n">10</span>
+
+<span class="c"># 第 2 轮：中等规模（200 万玩家，8+8 线程）</span>
+<span class="n">cargo</span> <span class="n">run</span> <span class="p">-</span><span class="n">-release</span> <span class="p">--</span> <span class="p">-</span><span class="n">-players</span> <span class="n">2000000</span> <span class="p">-</span><span class="n">-writers</span> <span class="n">8</span> <span class="p">-</span><span class="n">-readers</span> <span class="n">8</span> <span class="p">-</span><span class="n">-duration</span> <span class="n">20</span>
+
+<span class="c"># 第 3 轮：大规模（1000 万玩家，16+16 线程）</span>
+<span class="n">cargo</span> <span class="n">run</span> <span class="p">-</span><span class="n">-release</span> <span class="p">--</span> <span class="p">-</span><span class="n">-players</span> <span class="n">10000000</span> <span class="p">-</span><span class="n">-writers</span> <span class="n">16</span> <span class="p">-</span><span class="n">-readers</span> <span class="n">16</span> <span class="p">-</span><span class="n">-duration</span> <span class="n">30</span>
+
+<span class="c"># 第 4 轮：极限规模（5000 万玩家，32+32 线程）</span>
+<span class="n">cargo</span> <span class="n">run</span> <span class="p">-</span><span class="n">-release</span> <span class="p">--</span> <span class="p">-</span><span class="n">-players</span> <span class="n">50000000</span> <span class="p">-</span><span class="n">-writers</span> <span class="n">32</span> <span class="p">-</span><span class="n">-readers</span> <span class="n">32</span> <span class="p">-</span><span class="n">-duration</span> <span class="n">60</span>
+
+<span class="c"># 第 5 轮：纯写测试（32 写 + 0 读，测量写吞吐上限）</span>
+<span class="n">cargo</span> <span class="n">run</span> <span class="p">-</span><span class="n">-release</span> <span class="p">--</span> <span class="p">-</span><span class="n">-players</span> <span class="n">10000000</span> <span class="p">-</span><span class="n">-writers</span> <span class="n">32</span> <span class="p">-</span><span class="n">-readers</span> <span class="n">0</span> <span class="p">-</span><span class="n">-duration</span> <span class="n">30</span>
+</code></pre></div>
+
+<h3 id="9-5-测试时同时监控">9.5 测试时同时监控</h3>
+<p><strong>Windows 任务管理器</strong>（性能标签页）：
+- CPU 利用率（你应该能看到 20 个逻辑核心的负载分布）
+- 内存占用（32 线程 + 千万级数据预期 ~1.5-3 GB）</p>
+<p><strong>PowerShell 监控脚本</strong>（保存为 <code>monitor.ps1</code>）：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">while</span> <span class="p">(</span><span class="nv">$true</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$proc</span> <span class="p">=</span> <span class="nb">Get-Process</span> <span class="n">-Name</span> <span class="s2">&quot;bench&quot;</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$proc</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$cpu</span> <span class="p">=</span> <span class="p">(</span><span class="nv">$proc</span><span class="p">.</span><span class="n">CPU</span><span class="p">).</span><span class="n">ToString</span><span class="p">(</span><span class="s2">&quot;F1&quot;</span><span class="p">)</span>
+        <span class="nv">$mem</span> <span class="p">=</span> <span class="no">[math]</span><span class="p">::</span><span class="n">Round</span><span class="p">(</span><span class="nv">$proc</span><span class="p">.</span><span class="n">WorkingSet64</span> <span class="p">/</span> <span class="n">1MB</span><span class="p">,</span> <span class="n">1</span><span class="p">)</span>
+        <span class="nb">Write-Host</span> <span class="s2">&quot;</span><span class="p">$(</span><span class="nb">Get-Date</span> <span class="n">-Format</span> <span class="s1">&#39;HH:mm:ss&#39;</span><span class="p">)</span><span class="s2"> CPU=$cpu% MEM=$mem MB&quot;</span>
+    <span class="p">}</span>
+    <span class="nb">Start-Sleep</span> <span class="n">-Seconds</span> <span class="n">2</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="9-6-预期结果-265k-机器">9.6 预期结果（265K 机器）</h3>
+<p>基于 20 核心 + 48GB 的硬件，与云服务器（2 vCPU）的对比预测：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th style="text-align: center;">云服务器 (2vCPU)</th>
+<th style="text-align: center;">265K (20C) 预期</th>
+<th style="text-align: center;">提升</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>100K 写 QPS</td>
+<td style="text-align: center;">1,715,804</td>
+<td style="text-align: center;"><strong>8,000,000+</strong></td>
+<td style="text-align: center;">~5×</td>
+</tr>
+<tr>
+<td>100K 写延迟 avg</td>
+<td style="text-align: center;">0.92 μs</td>
+<td style="text-align: center;"><strong>&lt; 0.5 μs</strong></td>
+<td style="text-align: center;">~2×</td>
+</tr>
+<tr>
+<td>1000万 写 QPS</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><strong>6,000,000+</strong></td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>5000万 写 QPS</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><strong>4,000,000+</strong></td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>1000万 内存</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><strong>~800 MB</strong></td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>5000万 内存</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><strong>~3.5 GB</strong></td>
+<td style="text-align: center;">—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>为什么 265K 上不是简单的 10× 提升？</strong></p>
+<ol>
+<li><strong>内存带宽上限</strong>：20 核同时写 BTreeMap，48GB DDR5 理论带宽 ~60 GB/s。每核分到 ~3 GB/s，足够。但 BTreeMap 的堆分配（malloc/free）在多线程下会成为瓶颈</li>
+<li><strong>锁竞争随核心数非线性增长</strong>：1024 分段在 2 核下几乎无竞争（1024:2），在 16 写线程下竞争率约 16/1024 ≈ 1.6%，仍很低</li>
+<li><strong>NUMA</strong>：265K 是单 die，无 NUMA 跨节点开销</li>
+</ol>
+<h3 id="9-7-数据记录模板">9.7 数据记录模板</h3>
+<p>每轮跑完后，复制 JSON 输出填入：</p>
+<div class="codehilite"><pre><span></span><code>第 N 轮: --players X --writers Y --readers Z --duration D
+─────────────────────────────────────────────────────
+CPU 利用率:    ____%
+内存占用:      ____ MB
+写 QPS:        ____
+读 QPS:        ____
+写延迟 avg:    ____ μs
+读延迟 avg:    ____ μs
+写延迟 max:    ____ μs
+─────────────────────────────────────────────────────
+JSON:
+(复制终端输出的 [  ... ] 整行)
+</code></pre></div>
+
+<hr />
+<h2 id="十、代码仓库">十、代码仓库</h2>
 <div class="codehilite"><pre><span></span><code>shm-rank-bench/
 ├── Cargo.toml          ← 依赖: xxhash-rust, rand
 ├── README.md           ← 使用说明
@@ -567,6 +959,7 @@ cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"
 </code></pre></div>
 
 <p><strong>总代码量</strong>：~550 行 Rust（含注释）</p>
+<p><strong>压缩包</strong>：<code>/home/admin/shm-rank-bench.tar.gz</code>（36 MB，含 target/ 编译产物，解压即用）</p>
 <p><strong>编译后大小</strong>：630 KB（release + thin LTO）</p>
 </main>
 </body>
