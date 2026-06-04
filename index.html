@@ -89,6 +89,10 @@
     <span class="name">💻 排行榜 Demo 实现</span>
     <span class="desc">客户端→Gateway→RankingService 完整 10 步 Rust 生产级代码：ScoreSender 缓冲 / ScoreAggregator 整形 / WriteBuffer 无锁队列 / BatchWriter Pipeline / SnapshotManager 快照缓存，含容量验证。</span>
   </a></li>
+  <li><a href="/shm-segment-ranking.html">
+    <span class="name">🧩 共享内存分段锁排行榜</span>
+    <span class="desc">零 Redis 方案：mmap 共享内存 + 1024 分段 RwLock + 位运算 O(1) 寻址 + 段内跳表 O(log N)。写延迟 3μs（vs Redis 500μs），含锁粒度调优表与混合引擎融合方案。</span>
+  </a></li>
 </ul>
 
 <!-- ============ ARES ============ -->

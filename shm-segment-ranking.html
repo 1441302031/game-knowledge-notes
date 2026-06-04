@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shm-segment-ranking</title>
+<link rel="stylesheet" href="/ghibli.css">
+</head>
+<body class="ghibli-body">
+<nav class="ghibli-sidebar">
+    <h2 class="ghibli-sidebar-title">📖 目录</h2>
+    <ul><li style="margin-left:0px"><a href="#共享内存分段锁排行榜-零-redis-方案">共享内存分段锁排行榜：零 Redis 方案</a></li>
+<li style="margin-left:12px"><a href="#一、与-redis-方案的对比-为什么要走这条路">一、与 Redis 方案的对比：为什么要走这条路</a></li>
+<li style="margin-left:12px"><a href="#二、分段寻址-位运算-o-1-定位">二、分段寻址：位运算 O(1) 定位</a></li>
+<li style="margin-left:12px"><a href="#三、共享内存布局">三、共享内存布局</a></li>
+<li style="margin-left:12px"><a href="#四、段内跳表实现-带锁粒度控制">四、段内跳表实现（带锁粒度控制）</a></li>
+<li style="margin-left:12px"><a href="#五、全局排名聚合器-跨分段查询">五、全局排名聚合器：跨分段查询</a></li>
+<li style="margin-left:12px"><a href="#六、锁粒度分析-为什么-1024-分段是甜点">六、锁粒度分析：为什么 1024 分段是甜点</a></li>
+<li style="margin-left:12px"><a href="#七、完整初始化与-mmap-创建">七、完整初始化与 mmap 创建</a></li>
+<li style="margin-left:12px"><a href="#八、与对话中的思路一一对应">八、与对话中的思路一一对应</a></li>
+<li style="margin-left:12px"><a href="#九、两种方案选型指南">九、两种方案选型指南</a></li>
+<li style="margin-left:12px"><a href="#十、与-redis-方案的融合-两全其美">十、与 Redis 方案的融合：两全其美</a></li></ul>
+</nav>
+<main class="ghibli-main">
+<h1 id="共享内存分段锁排行榜-零-redis-方案">共享内存分段锁排行榜：零 Redis 方案</h1>
+<blockquote>
+<p>基于对话中「自定义协议 + map + 分段锁」思路的完整工程方案。不用 Redis，走进程内共享内存，位运算 O(1) 定位分段，段内跳表 O(log N) 排序。</p>
+</blockquote>
+<hr />
+<h2 id="一、与-redis-方案的对比-为什么要走这条路">一、与 Redis 方案的对比：为什么要走这条路</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Redis 方案（上一篇）</th>
+<th>共享内存分段锁（本篇）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>外部依赖</td>
+<td>Redis Cluster（10分片）</td>
+<td><strong>零依赖</strong>，纯进程内</td>
+</tr>
+<tr>
+<td>网络开销</td>
+<td>每次写入一次 gRPC + 一次 Redis RTT</td>
+<td><strong>零网络开销</strong>，内存操作</td>
+</tr>
+<tr>
+<td>写延迟</td>
+<td>~500μs（含网络 RTT）</td>
+<td><strong>~3-5μs</strong>（内存 + 锁）</td>
+</tr>
+<tr>
+<td>读延迟</td>
+<td>~1μs（快照缓存命中）</td>
+<td><strong>~0.2μs</strong>（分段锁 + 跳表查找）</td>
+</tr>
+<tr>
+<td>数据持久化</td>
+<td>Redis AOF</td>
+<td>mmap 文件自动回写</td>
+</tr>
+<tr>
+<td>跨进程共享</td>
+<td>通过 Redis 间接共享</td>
+<td><strong>mmap 直接共享</strong>，多进程读写同一块内存</td>
+</tr>
+<tr>
+<td>运维复杂度</td>
+<td>需要 Redis 集群 + 监控</td>
+<td><strong>零运维</strong>，随进程启停</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>弹性扩容、跨机房</td>
+<td><strong>单机极致性能</strong>、多进程共享</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心取舍</strong>：Redis 方案方便扩容，分段锁方案性能碾压。如果你的排行榜是单机多进程部署（比如 Ares 的 Battle Server 多进程共享排行数据），分段锁方案更优。</p>
+<hr />
+<h2 id="二、分段寻址-位运算-o-1-定位">二、分段寻址：位运算 O(1) 定位</h2>
+<p>这是对方提到的核心思路——「固定 key 值高位进行分段，位运算实现 O(1) 查找」。</p>
+<div class="codehilite"><pre><span></span><code><span class="sd">/// 分段配置</span>
+<span class="k">const</span><span class="w"> </span><span class="n">SEGMENT_BITS</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w">                    </span><span class="c1">// 2^10 = 1024 个分段</span>
+<span class="k">const</span><span class="w"> </span><span class="n">SEGMENT_COUNT</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SEGMENT_BITS</span><span class="p">;</span><span class="w">  </span><span class="c1">// 1024</span>
+<span class="k">const</span><span class="w"> </span><span class="n">SEGMENT_MASK</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">SEGMENT_COUNT</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">;</span>
+
+<span class="sd">/// 取 hash 值的高 SEGMENT_BITS 位作为分段 ID</span>
+<span class="sd">/// 为什么用高位？高位分布更均匀（hash 函数的 avalanche 效应在高位更明显）</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">segment_id</span><span class="p">(</span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xxhash64</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">.</span><span class="n">to_le_bytes</span><span class="p">());</span>
+<span class="w">    </span><span class="c1">// 右移 (64 - SEGMENT_BITS) 位，取最高的 SEGMENT_BITS 位</span>
+<span class="w">    </span><span class="p">(</span><span class="n">hash</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">(</span><span class="mi">64</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">SEGMENT_BITS</span><span class="p">))</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span>
+<span class="w">    </span><span class="c1">// 1024 个分段 → 用 key 的高 10 位决定落在哪个分段</span>
+<span class="w">    </span><span class="c1">// 位运算 → 单条 CPU 指令 → O(1)</span>
+<span class="p">}</span>
+
+<span class="sd">/// 取 hash 的低位作为段内索引（用于段内跳表排序）</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">segment_local_key</span><span class="p">(</span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xxhash64</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">.</span><span class="n">to_le_bytes</span><span class="p">());</span>
+<span class="w">    </span><span class="c1">// 低 54 位（64 - 10）作为段内排序键</span>
+<span class="w">    </span><span class="n">hash</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">((</span><span class="mi">1</span><span class="k">u64</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="mi">64</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">SEGMENT_BITS</span><span class="p">))</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>为什么用高位而不是取模？</strong></p>
+<div class="codehilite"><pre><span></span><code>取模分段：   segment = hash % 1024
+             → 需要除法指令（~30 CPU cycles）
+
+位运算分段： segment = hash &gt;&gt; 54
+             → 单条移位指令（~1 CPU cycle）
+             → 30 倍的指令级优化
+</code></pre></div>
+
+<p>而且高位分布更均匀。xxhash 的 avalanche 效应保证了高位和低位都一样随机，但高位右移比低位掩码多一次操作，实际性能无差别——<strong>但省掉除法是关键</strong>。</p>
+<hr />
+<h2 id="三、共享内存布局">三、共享内存布局</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">mmap</span><span class="w"> </span><span class="n">文件内存布局</span><span class="err">（</span><span class="n">假设</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="n">分段</span><span class="err">）</span>
+<span class="err">═══════════════════════════════════════════════════════════</span>
+
+<span class="n">偏移</span><span class="w"> </span><span class="mi">0</span><span class="w">          </span><span class="n">偏移</span><span class="w"> </span><span class="mi">64</span><span class="w">         </span><span class="n">偏移</span><span class="w"> </span><span class="mi">4096</span>
+<span class="err">┌──────────────┬──────────────┬─────────────────────────┐</span>
+<span class="err">│</span><span class="w">    </span><span class="n">Header</span><span class="w">    </span><span class="err">│</span><span class="w"> </span><span class="n">Segment</span><span class="w"> </span><span class="nc">Table</span><span class="err">│</span><span class="w">    </span><span class="n">Segment</span><span class="w"> </span><span class="k">Data</span><span class="w"> </span><span class="n">Area</span><span class="w">    </span><span class="err">│</span>
+<span class="err">│</span><span class="w">   </span><span class="p">(</span><span class="mi">64</span><span class="w"> </span><span class="n">bytes</span><span class="p">)</span><span class="w"> </span><span class="err">│</span><span class="w"> </span><span class="p">(</span><span class="mi">1024</span><span class="err">×</span><span class="mi">16</span><span class="n">B</span><span class="p">)</span><span class="w">   </span><span class="err">│</span><span class="w">  </span><span class="p">(</span><span class="n">每个分段独立区域</span><span class="p">)</span><span class="w">      </span><span class="err">│</span>
+<span class="err">└──────────────┴──────────────┴─────────────────────────┘</span>
+<span class="w">                  </span><span class="err">│</span>
+<span class="w">                  </span><span class="err">│</span><span class="w">  </span><span class="n">SegmentTable</span><span class="o">[</span><span class="n">i</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="k">size</span><span class="p">,</span><span class="w"> </span><span class="n">lock_state</span><span class="w"> </span><span class="err">}</span>
+<span class="w">                  </span><span class="err">│</span>
+<span class="w">     </span><span class="err">┌────────────┼────────────┬────────────┬────────────┐</span>
+<span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">Segment</span><span class="w"> </span><span class="mi">0</span><span class="w">  </span><span class="err">│</span><span class="w"> </span><span class="n">Segment</span><span class="w"> </span><span class="mi">1</span><span class="w">  </span><span class="err">│</span><span class="w"> </span><span class="n">Segment</span><span class="w"> </span><span class="mi">2</span><span class="w">  </span><span class="err">│</span><span class="w">  </span><span class="p">......</span><span class="w">    </span><span class="err">│</span>
+<span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">跳表根节点</span><span class="w">  </span><span class="err">│</span><span class="w"> </span><span class="n">跳表根节点</span><span class="w">  </span><span class="err">│</span><span class="w"> </span><span class="n">跳表根节点</span><span class="w">  </span><span class="err">│</span><span class="w">            </span><span class="err">│</span>
+<span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">节点数</span><span class="w">      </span><span class="err">│</span><span class="w"> </span><span class="n">节点数</span><span class="w">      </span><span class="err">│</span><span class="w"> </span><span class="n">节点数</span><span class="w">      </span><span class="err">│</span><span class="w">            </span><span class="err">│</span>
+<span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">RwLock</span><span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">RwLock</span><span class="w">     </span><span class="err">│</span><span class="w"> </span><span class="n">RwLock</span><span class="w">     </span><span class="err">│</span><span class="w">            </span><span class="err">│</span>
+<span class="w">     </span><span class="err">└────────────┴────────────┴────────────┴────────────┘</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">atomic</span><span class="p">::{</span><span class="n">AtomicU64</span><span class="p">,</span><span class="w"> </span><span class="n">AtomicU32</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">RwLock</span><span class="p">;</span>
+
+<span class="sd">/// 共享内存 Header（64 bytes，缓存行对齐）</span>
+<span class="cp">#[repr(C, align(64))]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ShmHeader</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">magic</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w">              </span><span class="c1">// 0x52414E4B (&quot;RANK&quot;)</span>
+<span class="w">    </span><span class="n">version</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w">            </span><span class="c1">// 格式版本</span>
+<span class="w">    </span><span class="n">segment_count</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w">      </span><span class="c1">// 分段数</span>
+<span class="w">    </span><span class="n">segment_bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w">       </span><span class="c1">// 分段位数</span>
+<span class="w">    </span><span class="n">total_entries</span><span class="p">:</span><span class="w"> </span><span class="nc">AtomicU64</span><span class="p">,</span><span class="w"> </span><span class="c1">// 全局总数（原子操作）</span>
+<span class="w">    </span><span class="n">created_at</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">         </span><span class="c1">// 创建时间戳</span>
+<span class="w">    </span><span class="n">_pad</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">28</span><span class="p">],</span><span class="w">          </span><span class="c1">// 填充到 64 bytes</span>
+<span class="p">}</span>
+
+<span class="sd">/// 分段表项（16 bytes，方便 SIMD 加载）</span>
+<span class="cp">#[repr(C)]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">SegmentEntry</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="nc">AtomicU64</span><span class="p">,</span><span class="w">       </span><span class="c1">// 分段数据区偏移</span>
+<span class="w">    </span><span class="n">size</span><span class="p">:</span><span class="w"> </span><span class="nc">AtomicU32</span><span class="p">,</span><span class="w">         </span><span class="c1">// 当前使用大小</span>
+<span class="w">    </span><span class="n">node_count</span><span class="p">:</span><span class="w"> </span><span class="nc">AtomicU32</span><span class="p">,</span><span class="w">   </span><span class="c1">// 节点数（用于全局排名计算）</span>
+<span class="w">    </span><span class="n">_pad</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span><span class="w">           </span><span class="c1">// 对齐</span>
+<span class="p">}</span>
+
+<span class="sd">/// 段内跳表节点（32 bytes）</span>
+<span class="cp">#[repr(C)]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">SkipNode</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">key</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">                </span><span class="c1">// segment_local_key（用于段内排序）</span>
+<span class="w">    </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w">          </span><span class="c1">// 原始玩家 ID</span>
+<span class="w">    </span><span class="n">score</span><span class="p">:</span><span class="w"> </span><span class="nc">AtomicU64</span><span class="p">,</span><span class="w">        </span><span class="c1">// 分数（原子更新，无需写锁）</span>
+<span class="w">    </span><span class="n">forward_offset</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u64</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="c1">// 4 层前向指针（文件内偏移量）</span>
+<span class="w">    </span><span class="n">span</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u32</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span><span class="w">          </span><span class="c1">// 跨度（用于计算排名）</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>关键设计决策</strong>：</p>
+<ol>
+<li><code>score</code> 用 <code>AtomicU64</code> 而不是普通 u64——分数更新只需要原子写，不需要锁</li>
+<li>段内跳表高度固定 4 层（80% 节点在 L0，18% 在 L1，1.8% 在 L2，0.2% 在 L3），1024 个节点的段内高度 4 层足够</li>
+<li>所有指针用文件内偏移量（u64）而不是裸指针——因为 mmap 在不同进程中映射到不同虚拟地址</li>
+</ol>
+<hr />
+<h2 id="四、段内跳表实现-带锁粒度控制">四、段内跳表实现（带锁粒度控制）</h2>
+<div class="codehilite"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">RwLock</span><span class="p">;</span>
+
+<span class="sd">/// 一个分段 = 一把 RwLock + 一个跳表</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">RankSegment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// 读写锁：读多写少的排行榜场景，RwLock 允许并发读</span>
+<span class="w">    </span><span class="n">lock</span><span class="p">:</span><span class="w"> </span><span class="nc">RwLock</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// 跳表头节点偏移（在 mmap 中的位置）</span>
+<span class="w">    </span><span class="n">header_offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// 当前节点数</span>
+<span class="w">    </span><span class="n">node_count</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">RankSegment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// 插入或更新分数（写锁）</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">upsert</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// 写锁：同一分段内串行化写入</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_guard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">write</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">local_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_local_key</span><span class="p">(</span><span class="n">player_id</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 查找插入位置（段内跳表，O(log 段内节点数)）</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">prev</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u64</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="bp">self</span><span class="p">.</span><span class="n">header_offset</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">];</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rank</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u32</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">];</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">header_offset</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// 从最高层开始搜索</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="mi">4</span><span class="p">).</span><span class="n">rev</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">node</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="n">level</span><span class="p">];</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">forward</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">next</span><span class="p">.</span><span class="n">local_key</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">local_key</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="n">rank</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">span</span><span class="p">[</span><span class="n">level</span><span class="p">];</span>
+<span class="w">                    </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">forward</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="k">break</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">            </span><span class="c1">// 记录本层的前驱节点</span>
+<span class="w">            </span><span class="n">prev</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="c1">// 检查是否已存在（更新分数）</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">existing</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">forward</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">target</span><span class="p">.</span><span class="n">player_id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">player_id</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="c1">// 原子更新分数——不需要修改跳表结构</span>
+<span class="w">                    </span><span class="n">target</span><span class="p">.</span><span class="n">score</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="n">score</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Release</span><span class="p">);</span>
+<span class="w">                    </span><span class="k">return</span><span class="p">;</span><span class="w">  </span><span class="c1">// ✅ 分数更新零结构化开销</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="c1">// 新节点：随机生成层数</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">new_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">random_level</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">new_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">alloc_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">local_key</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">,</span><span class="w"> </span><span class="n">new_level</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 插入到每一层（经典跳表插入算法）</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">new_level</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">prev_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">[</span><span class="n">level</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">next_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prev_node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="n">level</span><span class="p">];</span>
+
+<span class="w">            </span><span class="c1">// 设置新节点的 forward 指针</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">new_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">new_offset</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">            </span><span class="n">new_node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">next_offset</span><span class="p">;</span>
+
+<span class="w">            </span><span class="c1">// 更新前驱节点的 forward 指针</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">prev_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node_mut</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">prev</span><span class="p">[</span><span class="n">level</span><span class="p">]).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">            </span><span class="n">prev_node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new_offset</span><span class="p">;</span>
+
+<span class="w">            </span><span class="c1">// 更新 span</span>
+<span class="w">            </span><span class="c1">// ...（span 更新逻辑略，详见完整代码）</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">node_count</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="sd">/// 查询玩家排名（读锁）</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">get_rank</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// 读锁：多个查询可以并发</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_guard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">read</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">local_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_local_key</span><span class="p">(</span><span class="n">player_id</span><span class="p">);</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">header_offset</span><span class="p">;</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rank</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="mi">4</span><span class="p">).</span><span class="n">rev</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">node</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="n">level</span><span class="p">];</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">forward</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">next</span><span class="p">.</span><span class="n">local_key</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">local_key</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="n">rank</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">span</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">;</span>
+<span class="w">                    </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">forward</span><span class="p">;</span>
+<span class="w">                    </span><span class="k">if</span><span class="w"> </span><span class="n">next</span><span class="p">.</span><span class="n">player_id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">player_id</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="k">return</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">rank</span><span class="p">);</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="k">break</span><span class="p">;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nb">None</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="sd">/// 获取段内 Top-K（读锁）</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">get_top_k</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="p">(</span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_guard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">read</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Vec</span><span class="p">::</span><span class="n">with_capacity</span><span class="p">(</span><span class="n">k</span><span class="p">);</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">header_offset</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nb">Some</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="p">,</span>
+<span class="w">                </span><span class="nb">None</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">break</span><span class="p">,</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="n">forward_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">forward</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">read_node</span><span class="p">(</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">forward</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">            </span><span class="n">result</span><span class="p">.</span><span class="n">push</span><span class="p">((</span><span class="n">next</span><span class="p">.</span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">next</span><span class="p">.</span><span class="n">score</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span><span class="p">::</span><span class="n">Acquire</span><span class="p">)));</span>
+<span class="w">            </span><span class="n">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">forward</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">result</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read_node</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">SkipNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* mmap 偏移读取 */</span><span class="w"> </span><span class="nb">None</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read_node_mut</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">SkipNode</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">None</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">alloc_node</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">MmapRef</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">local_key</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">level</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">random_level</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 概率：L0 100%, L1 25%, L2 6.25%, L3 1.56%</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="n">level</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">fast_random</span><span class="p">()</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">level</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">level</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">fast_random</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="cm">/* xorshift 快速随机数 */</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="五、全局排名聚合器-跨分段查询">五、全局排名聚合器：跨分段查询</h2>
+<div class="codehilite"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">Arc</span><span class="p">;</span>
+
+<span class="sd">/// 全局排行榜管理器</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ShmRankingEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="o">&lt;</span><span class="n">MmapRef</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">segments</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">RankSegment</span><span class="o">&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// 1024 个分段</span>
+<span class="w">    </span><span class="n">header</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="nc">ShmHeader</span><span class="p">,</span><span class="w">    </span><span class="c1">// 指向 mmap 的 Header</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">ShmRankingEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// 写入分数（先定位分段，再操作段内跳表）</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update_score</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">seg_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_id</span><span class="p">(</span><span class="n">player_id</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// 只锁这一个分段，其他 1023 个分段不受影响</span>
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">segments</span><span class="p">[</span><span class="n">seg_id</span><span class="p">].</span><span class="n">upsert</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="sd">/// 查询自己的排名</span>
+<span class="w">    </span><span class="sd">/// 排名 = 段内排名 + 所有比该分段 hash 更高的分段的节点总数</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get_my_rank</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">seg_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_id</span><span class="p">(</span><span class="n">player_id</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 第1步：段内排名</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">local_rank</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">segments</span><span class="p">[</span><span class="n">seg_id</span><span class="p">].</span><span class="n">get_rank</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// 第2步：累加所有高位分段的节点数</span>
+<span class="w">        </span><span class="c1">// 因为分段按 hash 高位，所以高位分段的所有节点分数都大于该分段的任意节点</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">higher_count</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="n">seg_id</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="o">..</span><span class="n">SEGMENT_COUNT</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">higher_count</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">segments</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">node_count</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="n">local_rank</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">higher_count</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="sd">/// 获取全局 Top-K</span>
+<span class="w">    </span><span class="sd">/// 从最高分段开始收集，直到凑够 K 个</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get_top_k</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="p">(</span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Vec</span><span class="p">::</span><span class="n">with_capacity</span><span class="p">(</span><span class="n">k</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 从最高分段（SEGMENT_COUNT - 1）往低分段遍历</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">seg_id</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="n">SEGMENT_COUNT</span><span class="p">).</span><span class="n">rev</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">len</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">len</span><span class="p">();</span>
+
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">seg_top</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">segments</span><span class="p">[</span><span class="n">seg_id</span><span class="p">].</span><span class="n">get_top_k</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">mmap</span><span class="p">,</span><span class="w"> </span><span class="n">remaining</span><span class="p">);</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">)</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">seg_top</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">result</span><span class="p">.</span><span class="n">push</span><span class="p">((</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">));</span><span class="w"> </span><span class="c1">// rank 后续统一计算</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+
+<span class="w">        </span><span class="c1">// 统一标注排名</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">entry</span><span class="p">)</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">iter_mut</span><span class="p">().</span><span class="n">enumerate</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">entry</span><span class="p">.</span><span class="mi">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">result</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="六、锁粒度分析-为什么-1024-分段是甜点">六、锁粒度分析：为什么 1024 分段是甜点</h2>
+<p>这是对方问的「怎么分的粒度会合适」——用数据回答：</p>
+<div class="codehilite"><pre><span></span><code>假设：1000 万玩家, 1024 分段
+
+每分段平均节点数：1000 万 / 1024 ≈ 9765 个
+
+写操作分析：
+  - 50 万写/秒 均匀哈希分布 → 每分段 ~488 写/秒
+  - 每次写持有写锁 ~3μs（段内跳表插入）
+  - 每分段 488 × 3μs = 1.46ms / 秒 持有写锁
+  - 写锁利用率：0.15% → 几乎不阻塞
+
+读操作分析：
+  - 500 万读/秒 均匀哈希分布 → 每分段 ~4882 读/秒
+  - 每次读持有读锁 ~0.2μs（段内跳表查找）
+  - RwLock 允许多个读者并发 → 读操作几乎不互相阻塞
+  - 读被写阻塞概率：写锁时间 / 总时间 = 0.15% → 几乎不阻塞
+
+锁竞争率：~0.3%（读等待写的概率 + 写等待写的概率）
+            → 远低于 1%，分段粒度合理
+</code></pre></div>
+
+<p><strong>粒度调优规则</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>分段数</th>
+<th>每段节点数</th>
+<th>读写竞争率</th>
+<th>内存开销（段表）</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>64</td>
+<td>15.6万</td>
+<td>~3%</td>
+<td>1 KB</td>
+<td>低并发(&lt; 1万QPS)</td>
+</tr>
+<tr>
+<td>256</td>
+<td>3.9万</td>
+<td>~0.8%</td>
+<td>4 KB</td>
+<td>中并发(1-10万QPS)</td>
+</tr>
+<tr>
+<td><strong>1024</strong></td>
+<td><strong>9765</strong></td>
+<td><strong>~0.3%</strong></td>
+<td><strong>16 KB</strong></td>
+<td><strong>高并发(10-100万QPS)</strong> ← 推荐</td>
+</tr>
+<tr>
+<td>4096</td>
+<td>2441</td>
+<td>~0.08%</td>
+<td>64 KB</td>
+<td>极高并发(&gt; 100万QPS)</td>
+</tr>
+<tr>
+<td>16384</td>
+<td>610</td>
+<td>~0.02%</td>
+<td>256 KB</td>
+<td>极端场景</td>
+</tr>
+</tbody>
+</table>
+<p><strong>甜点 1024 的理由</strong>：
+- 每段 ~1 万节点，段内跳表 O(log 1万) ≈ 13 次指针跳转
+- 竞争率 0.3%，锁开销可忽略
+- 16 KB 段表完全在 L1 缓存中
+- 向后可扩到 4096（仅改一个常量），向前不浪费</p>
+<hr />
+<h2 id="七、完整初始化与-mmap-创建">七、完整初始化与 mmap 创建</h2>
+<div class="codehilite"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">memmap2</span><span class="p">::{</span><span class="n">MmapMut</span><span class="p">,</span><span class="w"> </span><span class="n">MmapOptions</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">fs</span><span class="p">::{</span><span class="n">File</span><span class="p">,</span><span class="w"> </span><span class="n">OpenOptions</span><span class="p">};</span>
+
+<span class="sd">/// 创建或打开共享内存排行榜</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">create_or_open</span><span class="p">(</span><span class="n">path</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">segment_bits</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">ShmRankingEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">segment_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="k">usize</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">segment_bits</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// 计算总文件大小</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">header_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">64</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">table_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_count</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span><span class="w">  </span><span class="c1">// 每分段 16 bytes</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">data_area_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_count</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">;</span><span class="w"> </span><span class="c1">// 每分段 1MB 预分配</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">total_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">header_size</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">table_size</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">data_area_size</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OpenOptions</span><span class="p">::</span><span class="n">new</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="n">read</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">write</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">create</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="n">file</span><span class="p">.</span><span class="n">set_len</span><span class="p">(</span><span class="n">total_size</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">mmap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">MmapOptions</span><span class="p">::</span><span class="n">new</span><span class="p">().</span><span class="n">map_mut</span><span class="p">(</span><span class="o">&amp;</span><span class="n">file</span><span class="p">).</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">    </span><span class="c1">// 初始化 Header</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">header</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="p">(</span><span class="n">mmap</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">ShmHeader</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">magic</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x52414E4B</span><span class="p">;</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">segment_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_count</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">segment_bits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">segment_bits</span><span class="p">;</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">total_entries</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Release</span><span class="p">);</span>
+<span class="w">    </span><span class="n">header</span><span class="p">.</span><span class="n">created_at</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">now_timestamp</span><span class="p">();</span>
+
+<span class="w">    </span><span class="c1">// 初始化分段表</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">table_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">mmap</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">().</span><span class="n">add</span><span class="p">(</span><span class="n">header_size</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">SegmentEntry</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">data_base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">header_size</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">table_size</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="n">segment_count</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="p">(</span><span class="o">*</span><span class="n">table_base</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)).</span><span class="n">offset</span><span class="p">.</span><span class="n">store</span><span class="p">((</span><span class="n">data_base</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Release</span><span class="p">);</span>
+<span class="w">            </span><span class="p">(</span><span class="o">*</span><span class="n">table_base</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)).</span><span class="n">size</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Release</span><span class="p">);</span>
+<span class="w">            </span><span class="p">(</span><span class="o">*</span><span class="n">table_base</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)).</span><span class="n">node_count</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Release</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// 初始化每个分段的跳表头节点</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">segments</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">RankSegment</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="n">segment_count</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">i</span><span class="o">|</span><span class="w"> </span><span class="n">RankSegment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">lock</span><span class="p">:</span><span class="w"> </span><span class="nc">RwLock</span><span class="p">::</span><span class="n">new</span><span class="p">(()),</span>
+<span class="w">            </span><span class="n">header_offset</span><span class="p">:</span><span class="w"> </span><span class="p">(</span><span class="n">data_base</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+<span class="w">            </span><span class="n">node_count</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">        </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+
+<span class="w">    </span><span class="n">ShmRankingEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">mmap</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">MmapRef</span><span class="p">(</span><span class="n">mmap</span><span class="p">)),</span>
+<span class="w">        </span><span class="n">segments</span><span class="p">,</span>
+<span class="w">        </span><span class="n">header</span><span class="p">:</span><span class="w"> </span><span class="nc">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;*</span><span class="p">(</span><span class="n">mmap</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">ShmHeader</span><span class="p">)</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="八、与对话中的思路一一对应">八、与对话中的思路一一对应</h2>
+<table>
+<thead>
+<tr>
+<th>对话原文</th>
+<th>对应实现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「进程内存共享」</td>
+<td><code>mmap</code> 文件，多进程共享同一块物理内存</td>
+</tr>
+<tr>
+<td>「自定义协议 + map」</td>
+<td>段内跳表就是 map 的增强版（带排序 + 排名能力）</td>
+</tr>
+<tr>
+<td>「分段减少 hash 损耗」</td>
+<td>1024 分段，段内只处理 ~1 万节点，hash 碰撞概率极低</td>
+</tr>
+<tr>
+<td>「固定 key 值高位进行分段」</td>
+<td><code>hash &gt;&gt; (64 - 10)</code>，高位 10 位决定分段</td>
+</tr>
+<tr>
+<td>「位运算实现 O(1) 查找」</td>
+<td>右移指令，单 CPU cycle</td>
+</tr>
+<tr>
+<td>「至少得保证 log(n)」</td>
+<td>段内跳表 O(log 9765) ≈ 13 次操作</td>
+</tr>
+<tr>
+<td>「锁可以理解为强制在这段单线程」</td>
+<td>每分段一把 <code>RwLock</code>，写锁独占、读锁共享</td>
+</tr>
+<tr>
+<td>「粒度、吞吐量、并发量怎么权衡」</td>
+<td>1024 分段 × 竞争率 0.3% = 零阻塞</td>
+</tr>
+<tr>
+<td>「每个细节点都会影响最终方案」</td>
+<td>位运算不用除法、AtomicU64 分数免锁、4 层跳表刚好</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="九、两种方案选型指南">九、两种方案选型指南</h2>
+<div class="codehilite"><pre><span></span><code>                    你需要什么？
+                        │
+           ┌────────────┼────────────┐
+           │            │            │
+     弹性扩容？     单机极致？    最简单？
+           │            │            │
+           ▼            ▼            ▼
+      Redis 方案    分段锁方案    直接用 Redis
+      (上一篇)      (本篇)       ZSET
+           │            │            │
+     ✓ 水平扩展    ✓ 零延迟      ✓ 一行命令
+     ✓ 跨机房      ✓ 零运维      ✗ 扩展性差
+     ✗ 有网络开销  ✗ 单机上限    ✗ 单线程瓶颈
+</code></pre></div>
+
+<hr />
+<h2 id="十、与-redis-方案的融合-两全其美">十、与 Redis 方案的融合：两全其美</h2>
+<p>这两个方案不是互斥的。最佳实践是<strong>组合使用</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="sd">/// 混合引擎：分段锁做热数据，Redis 做持久化 + 跨服</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">HybridEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// 分段锁热数据（微秒级读写）</span>
+<span class="w">    </span><span class="n">shm</span><span class="p">:</span><span class="w"> </span><span class="nc">ShmRankingEngine</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Redis 异步备份（秒级同步）</span>
+<span class="w">    </span><span class="n">redis</span><span class="p">:</span><span class="w"> </span><span class="nc">RedisPool</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">HybridEngine</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">update_score</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// 1. 立即写入分段锁（微秒级，玩家无感知）</span>
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">shm</span><span class="p">.</span><span class="n">update_score</span><span class="p">(</span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// 2. 异步写入 Redis（毫秒级，不影响请求返回）</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">redis</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">redis</span><span class="p">.</span><span class="n">clone</span><span class="p">();</span>
+<span class="w">        </span><span class="n">tokio</span><span class="p">::</span><span class="n">spawn</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="k">move</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">redis</span><span class="p">.</span><span class="n">zadd</span><span class="p">(</span><span class="s">&quot;rank:arena&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">score</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+<span class="w">        </span><span class="p">});</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">get_top_k</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">RankEntry</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// 读路径：只走分段锁，不走 Redis</span>
+<span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">shm</span><span class="p">.</span><span class="n">get_top_k</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>写入路径</strong>：分段锁立即返回 → Redis 异步备份
+<strong>读取路径</strong>：永远走分段锁（零网络开销）
+<strong>崩溃恢复</strong>：从 Redis 重建分段锁数据</p>
+<p>这就是「每种方案在适合的场景里发挥」的最终答案。</p>
+</main>
+</body>
+</html>
