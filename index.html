@@ -93,6 +93,10 @@
     <span class="name">🧩 共享内存分段锁排行榜</span>
     <span class="desc">零 Redis 方案：mmap 共享内存 + 1024 分段 RwLock + 位运算 O(1) 寻址 + 段内跳表 O(log N)。写延迟 3μs（vs Redis 500μs），含锁粒度调优表与混合引擎融合方案。</span>
   </a></li>
+  <li><a href="/shm-benchmark-report.html">
+    <span class="name">🧪 分段锁 Demo 压测报告</span>
+    <span class="desc">实测数据：分段锁写 QPS 183万/秒、延迟 0.87μs，对比全局锁提升 144×。含代码仓库、2vCPU 实测、265K 性能预测、跳表优化路线图。</span>
+  </a></li>
 </ul>
 
 <!-- ============ ARES ============ -->
