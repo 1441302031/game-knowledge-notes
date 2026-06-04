@@ -27,9 +27,84 @@
 ### 2.1 分段锁排行榜（SegmentedRanking）
 
 ```rust
+use std::collections::BTreeMap;
+use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 pub struct SegmentedRanking {
     segments: Vec<RwLock<BTreeMap<u64, u64>>>,  // 1024 个分段
     sizes: Vec<AtomicU64>,                       // 1024 个无锁段大小计数器
+}
+
+impl SegmentedRanking {
+    pub fn new() -> Self {
+        Self {
+            segments: (0..SEGMENT_COUNT)
+                .map(|_| RwLock::new(BTreeMap::new()))
+                .collect(),
+            sizes: (0..SEGMENT_COUNT)
+                .map(|_| AtomicU64::new(0))
+                .collect(),
+        }
+    }
+
+    /// 位运算 O(1) 分段寻址：取 hash 高 10 位
+    #[inline(always)]
+    fn segment_id(key: u64) -> usize {
+        let hash = xxhash_rust::xxh3::xxh3_64(&key.to_le_bytes());
+        (hash >> (64 - SEGMENT_BITS)) as usize
+    }
+
+    /// 写入分数（只锁一个分段，其余 1023 个分段不受影响）
+    pub fn update_score(&self, player_id: u64, score: u64) {
+        let seg = Self::segment_id(player_id);
+        let mut map = self.segments[seg].write().unwrap();  // ← 只锁 1/1024
+        let is_new = !map.contains_key(&player_id);
+        map.insert(player_id, score);
+        if is_new {
+            self.sizes[seg].fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// 查询排名 = 段内排名 + 高分段节点总数
+    pub fn get_rank(&self, player_id: u64) -> Option<usize> {
+        let seg = Self::segment_id(player_id);
+        let map = self.segments[seg].read().unwrap();
+        let my_score = *map.get(&player_id)?;
+
+        // 段内排名：遍历该段所有条目（O(段大小)，Demo 占位实现）
+        let local_rank = map.iter()
+            .filter(|(&pid, &s)| s > my_score || (s == my_score && pid < player_id))
+            .count();
+
+        // 高分段节点数：读 AtomicU64 数组，零锁开销
+        let higher_count: usize = self.sizes[seg + 1..]
+            .iter()
+            .map(|s| s.load(Ordering::Relaxed) as usize)
+            .sum();
+
+        Some(local_rank + higher_count)
+    }
+
+    /// 获取 Top-K（收集全部 1024 段 → 排序 → 截断）
+    pub fn get_top_k(&self, k: usize) -> Vec<(u64, u64)> {
+        let mut all: Vec<(u64, u64)> = self.segments
+            .iter()
+            .flat_map(|s| {
+                let map = s.read().unwrap();
+                map.iter()
+                    .map(|(&pid, &score)| (pid, score))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        all.sort_by(|a, b| b.1.cmp(&a.1));
+        all.truncate(k);
+        all
+    }
+
+    pub fn total_entries(&self) -> usize {
+        self.sizes.iter().map(|s| s.load(Ordering::Relaxed) as usize).sum()
+    }
 }
 ```
 
@@ -70,11 +145,60 @@ segment_id = xxhash64(player_id) >> 54
 
 ### 2.2 全局锁排行榜（GlobalLockRanking，对比基线）
 
+**结构与分段锁的差异**：所有 100,000 条数据挤在同一把 `RwLock` 和同一棵 `BTreeMap` 里。
+
 ```rust
+use std::collections::BTreeMap;
+use std::sync::RwLock;
+
 pub struct GlobalLockRanking {
-    map: RwLock<BTreeMap<u64, u64>>,  // 所有数据锁在同一棵树里
+    map: RwLock<BTreeMap<u64, u64>>,   // ← 全部数据都在这一把锁里
+}
+
+impl GlobalLockRanking {
+    pub fn new() -> Self {
+        Self { map: RwLock::new(BTreeMap::new()) }
+    }
+
+    /// 写入分数（锁住整个表，所有线程串行化）
+    pub fn update_score(&self, player_id: u64, score: u64) {
+        let mut map = self.map.write().unwrap();   // ← 全局写锁
+        map.insert(player_id, score);
+    }
+
+    /// 查询排名
+    pub fn get_rank(&self, player_id: u64) -> Option<usize> {
+        let map = self.map.read().unwrap();         // ← 全局读锁
+        let my_score = *map.get(&player_id)?;
+        let rank = map.iter()
+            .filter(|(_, &s)| s > my_score)
+            .count();
+        Some(rank)
+    }
+
+    /// Top-K（锁一次，收集全部 → 排序 → 截断）
+    pub fn get_top_k(&self, k: usize) -> Vec<(u64, u64)> {
+        let map = self.map.read().unwrap();
+        let mut all: Vec<_> = map.iter()
+            .map(|(&pid, &score)| (pid, score))
+            .collect();
+        all.sort_by(|a, b| b.1.cmp(&a.1));
+        all.truncate(k);
+        all
+    }
 }
 ```
+
+**与分段锁的关键差异对照**：
+
+| 操作 | 分段锁 | 全局锁 |
+|------|--------|--------|
+| 锁范围 | 1/1024 分段 | **全部数据** |
+| 写锁竞争 | 1/1024 概率冲突 | **所有写入者互斥** |
+| 写路径 | `segment_id → segments[seg].write()` | `self.map.write()` |
+| 读路径 get_rank | 锁单段 + AtomicU64 读其余段大小 | 锁全部（但只锁一次） |
+| 读路径 get_top_k | 1024 次读锁 | **1 次读锁** |
+| 并发上限 | 1024 个写线程可并行 | **1 个写线程** |
 
 单条数据内存开销与分段锁相同（~48 bytes/条），但所有 100,000 条在同一棵 BTreeMap 中。
 
